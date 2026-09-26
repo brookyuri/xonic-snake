@@ -16,7 +16,7 @@ import { describeEnd } from './endText'
 import { HeldFlag, MessageFeed } from './messageFeed'
 import { DANGER_MESSAGE, describeRound } from './roundText'
 import type { Settings } from './settings'
-import { markLastGameRematch, recordGame } from './stats'
+import { markLastGameRematch, recordAbandoned, recordGame } from './stats'
 import { swipeDirection } from './swipe'
 import { perfEnabled, recordTick } from './perf'
 
@@ -96,6 +96,31 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
     })
     return () => cancelAnimationFrame(frame)
   }, [controller])
+
+  /**
+   * Брошенная партия (RESTART / MENU с паузы, уход со страницы): пишется в ts_games
+   * с reason ABANDONED. Отсчёт до первого тика и уже записанные партии не пишутся.
+   */
+  const abandon = useCallback(() => {
+    const { ticks: played, state: current, phase: now } = controller.snapshot
+    if (played === 0 || now === 'FINISHED' || match.current.recorded) return
+    match.current.recorded = true
+    recordAbandoned({
+      startedAt: match.current.startedAt,
+      rounds: played,
+      blueCells: territoryCells(current, 'P1'),
+      redCells: territoryCells(current, 'P2'),
+      captures: match.current.captures,
+      difficulty: settings.difficulty,
+      speed: settings.speed,
+    })
+  }, [controller, settings])
+
+  // Закрытие вкладки или уход со страницы во время матча.
+  useEffect(() => {
+    window.addEventListener('pagehide', abandon)
+    return () => window.removeEventListener('pagehide', abandon)
+  }, [abandon])
 
   // Автопауза при сворачивании вкладки (5.1.2).
   useEffect(() => {
@@ -287,7 +312,17 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
         </div>
 
         {phase === 'PAUSED' && (
-          <PauseScreen onResume={() => controller.resume()} onRestart={() => onRestart(false)} onMenu={onMenu} />
+          <PauseScreen
+            onResume={() => controller.resume()}
+            onRestart={() => {
+              abandon()
+              onRestart(false)
+            }}
+            onMenu={() => {
+              abandon()
+              onMenu()
+            }}
+          />
         )}
 
         {end && (

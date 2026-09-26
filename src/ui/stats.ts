@@ -7,21 +7,29 @@ export const STATS_KEY = 'ts_stats'
 export const GAMES_KEY = 'ts_games'
 export const MAX_GAMES = 200
 
-/** Сводка по партиям человека. bestTerritory — лучший % территории на конец партии. */
+/**
+ * Сводка по партиям человека. bestTerritory — лучший % территории на конец партии.
+ * abandoned — брошенные партии; в gamesPlayed/wins/losses/draws они не входят.
+ */
 export interface PlayerStats {
   gamesPlayed: number
   wins: number
   losses: number
   draws: number
   bestTerritory: number
+  abandoned: number
 }
+
+/** Партия брошена: RESTART / MENU с паузы или уход со страницы во время матча. */
+export const ABANDONED = 'ABANDONED'
 
 /** Одна партия для метрик плейтеста (PRD, раздел 28). winner: P1 — человек, P2 — бот. */
 export interface GameRecord {
   startedAt: string
   rounds: number
-  winner: PlayerId | 'DRAW'
-  reason: Reason
+  /** null — партия брошена. */
+  winner: PlayerId | 'DRAW' | null
+  reason: Reason | typeof ABANDONED
   blueCells: number
   redCells: number
   /** Сколько раз человек замкнул след за партию. */
@@ -32,7 +40,7 @@ export interface GameRecord {
   speed: Speed
 }
 
-const EMPTY_STATS: PlayerStats = { gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTerritory: 0 }
+const EMPTY_STATS: PlayerStats = { gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTerritory: 0, abandoned: 0 }
 
 export function loadStats(): PlayerStats {
   const raw = readJSON<Partial<PlayerStats> | null>(STATS_KEY, null)
@@ -44,6 +52,7 @@ export function loadStats(): PlayerStats {
     losses: num(raw.losses),
     draws: num(raw.draws),
     bestTerritory: num(raw.bestTerritory),
+    abandoned: num(raw.abandoned),
   }
 }
 
@@ -52,7 +61,17 @@ export function loadGames(): GameRecord[] {
   return Array.isArray(raw) ? (raw as GameRecord[]) : []
 }
 
-export function recordGame(record: Omit<GameRecord, 'rematch'>, humanPercent: number): void {
+function appendGame(record: Omit<GameRecord, 'rematch'>): void {
+  const games = [...loadGames(), { ...record, rematch: false }].slice(-MAX_GAMES)
+  writeJSON(GAMES_KEY, games)
+}
+
+type FinishedRecord = Omit<GameRecord, 'rematch' | 'winner' | 'reason'> & {
+  winner: PlayerId | 'DRAW'
+  reason: Reason
+}
+
+export function recordGame(record: FinishedRecord, humanPercent: number): void {
   const stats = loadStats()
   stats.gamesPlayed++
   if (record.winner === 'P1') stats.wins++
@@ -60,9 +79,15 @@ export function recordGame(record: Omit<GameRecord, 'rematch'>, humanPercent: nu
   else stats.draws++
   stats.bestTerritory = Math.max(stats.bestTerritory, humanPercent)
   writeJSON(STATS_KEY, stats)
+  appendGame(record)
+}
 
-  const games = [...loadGames(), { ...record, rematch: false }].slice(-MAX_GAMES)
-  writeJSON(GAMES_KEY, games)
+/** Брошенная партия: в ts_games с reason ABANDONED, в сводке — только счётчик abandoned. */
+export function recordAbandoned(record: Omit<GameRecord, 'rematch' | 'winner' | 'reason'>): void {
+  const stats = loadStats()
+  stats.abandoned++
+  writeJSON(STATS_KEY, stats)
+  appendGame({ ...record, winner: null, reason: ABANDONED })
 }
 
 export function markLastGameRematch(): void {

@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   exportStats,
+  recordAbandoned,
   formatStatsLine,
   loadGames,
   loadStats,
@@ -37,7 +38,7 @@ describe('stats', () => {
   it('works with no storage at all', () => {
     vi.stubGlobal('localStorage', undefined)
     expect(() => recordGame(game('P1'), 10)).not.toThrow()
-    expect(loadStats()).toEqual({ gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTerritory: 0 })
+    expect(loadStats()).toEqual({ gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTerritory: 0, abandoned: 0 })
     expect(loadGames()).toEqual([])
   })
 
@@ -62,7 +63,7 @@ describe('stats', () => {
     markLastGameRematch()
     recordGame(game('DRAW'), 20)
 
-    expect(loadStats()).toEqual({ gamesPlayed: 3, wins: 1, losses: 1, draws: 1, bestTerritory: 34 })
+    expect(loadStats()).toEqual({ gamesPlayed: 3, wins: 1, losses: 1, draws: 1, bestTerritory: 34, abandoned: 0 })
     expect(loadGames().map((g) => g.rematch)).toEqual([false, true, false])
     expect(formatStatsLine(loadStats())).toBe('Played 3 · Won 1 · Best 34%')
   })
@@ -97,5 +98,21 @@ describe('stats', () => {
       speed: 'normal',
     })
     expect(typeof exported.exportedAt).toBe('string')
+  })
+
+  it('abandoned games are logged but count as neither win nor loss', () => {
+    vi.stubGlobal('localStorage', memoryStorage())
+    recordGame(game('P1'), 12)
+    const { winner: _w, reason: _r, ...partial } = game('P2')
+    recordAbandoned({ ...partial, rounds: 17, blueCells: 11, redCells: 14 })
+    expect(loadStats()).toEqual({ gamesPlayed: 1, wins: 1, losses: 0, draws: 0, bestTerritory: 12, abandoned: 1 })
+    expect(loadGames()[1]).toMatchObject({
+      reason: 'ABANDONED',
+      winner: null,
+      rounds: 17,
+      blueCells: 11,
+      redCells: 14,
+      rematch: false,
+    })
   })
 })
