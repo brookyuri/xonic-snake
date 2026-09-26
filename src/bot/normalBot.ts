@@ -46,6 +46,21 @@ export const NORMAL_CONFIG = {
 
 export type NormalConfig = typeof NORMAL_CONFIG
 
+/** Easy: тот же maximin, но медленнее реагирует, ошибается и меньше осторожничает. */
+export const EASY_CONFIG = {
+  ...NORMAL_CONFIG,
+  /** Меньше вес худшего ответа — чаще рискует, реже уходит от угрозы. */
+  MINMAX_WEIGHT: 0.4,
+  /** Вдвое слабее тяга к атаке. */
+  ATTACK: NORMAL_CONFIG.ATTACK / 2,
+  /** Пересчитывает решение только на каждом N-м тике; в остальные едет прямо, если это безопасно. */
+  REACTION_TICKS: 2,
+  /** Вероятность случайного хода (не на свой след) вместо обдуманного. */
+  MISTAKE_RATE: 0.2,
+}
+
+export type EasyConfig = typeof EASY_CONFIG
+
 export interface Breakdown {
   /** ±WIN / DRAW_SCORE для законченной партии, иначе 0. */
   outcome: number
@@ -157,10 +172,19 @@ export function explainMove(
     .sort((a, b) => b.score - a.score)
 }
 
-/** Бот уровня Normal. Видит только state; при равных оценках выбирает через rng. */
-export const normalBot: Bot = (state, player, rng = Math.random) => {
-  const moves = explainMove(state, player)
+/** Лучший ход по maximin с заданными весами; при равных оценках — через rng. */
+export function chooseMove(
+  state: GameState,
+  player: PlayerId,
+  rng: () => number,
+  config: NormalConfig
+): Direction {
+  const moves = explainMove(state, player, config)
   const best = moves[0].score
   const tied = moves.filter((m) => best - m.score < 1e-9).map((m) => m.move)
   return pick(tied, rng)
 }
+
+/** Бот уровня Normal. Видит только state. */
+export const normalBot: Bot = (state, player, rng = Math.random) =>
+  chooseMove(state, player, rng, NORMAL_CONFIG)
