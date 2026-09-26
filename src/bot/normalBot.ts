@@ -10,7 +10,7 @@ import {
   trailRace,
 } from './analysis'
 import { pick } from './rng'
-import type { Bot } from './types'
+import { runToEnd, type Bot, type SteppedBot } from './types'
 
 /** Веса оценки позиции. Подбирались бенчмарком (src/bot/__tests__/benchmark.test.ts). */
 export const NORMAL_CONFIG = {
@@ -130,7 +130,7 @@ export function evaluate(
       const decay = Math.pow(config.POTENTIAL_DECAY, Math.max(0, home - 1))
       b.potential = config.POTENTIAL * potentialCapture(state, me) * decay
     }
-    const race = trailRace(state, me)
+    const race = trailRace(state, me, home)
     if (race <= 0) b.danger = -config.DANGER
     else if (race === 1) b.danger = -config.DANGER_NEAR
     b.greed = -config.TRAIL_LENGTH * myTrail
@@ -147,44 +147,65 @@ export function evaluate(
   return b
 }
 
-/** Maximin на один раунд: каждый мой ход против каждого ответа противника. */
+/**
+ * Maximin на один раунд: каждый мой ход против каждого ответа противника.
+ * Пошагово: yield после каждой оцененной пары, чтобы расчёт можно было нарезать по кадрам.
+ */
+export function* explainMoveSteps(
+  state: GameState,
+  player: PlayerId,
+  config: NormalConfig = NORMAL_CONFIG
+): Generator<void, MoveEvaluation[], void> {
+  const opp = opponentOf(player)
+  const replies = getLegalMoves(state, opp)
+  const result: MoveEvaluation[] = []
+
+  for (const move of getLegalMoves(state, player)) {
+    const evaluated: ReplyEvaluation[] = []
+    for (const reply of replies) {
+      const [moveP1, moveP2] = player === 'P1' ? [move, reply] : [reply, move]
+      const next = resolveRound(state, moveP1, moveP2).state
+      evaluated.push({ reply, breakdown: evaluate(next, player, config) })
+      yield
+    }
+    const totals = evaluated.map((r) => r.breakdown.total)
+    const min = Math.min(...totals)
+    const mean = totals.reduce((a, t) => a + t, 0) / totals.length
+    const score = config.MINMAX_WEIGHT * min + (1 - config.MINMAX_WEIGHT) * mean
+    result.push({ move, score, min, mean, replies: evaluated })
+  }
+  return result.sort((a, b) => b.score - a.score)
+}
+
+/** Разбор всех ходов с оценками по компонентам (для отладки и тюнинга). */
 export function explainMove(
   state: GameState,
   player: PlayerId,
   config: NormalConfig = NORMAL_CONFIG
 ): MoveEvaluation[] {
-  const opp = opponentOf(player)
-  const replies = getLegalMoves(state, opp)
-
-  return getLegalMoves(state, player)
-    .map((move) => {
-      const evaluated = replies.map((reply) => {
-        const [moveP1, moveP2] = player === 'P1' ? [move, reply] : [reply, move]
-        const next = resolveRound(state, moveP1, moveP2).state
-        return { reply, breakdown: evaluate(next, player, config) }
-      })
-      const totals = evaluated.map((r) => r.breakdown.total)
-      const min = Math.min(...totals)
-      const mean = totals.reduce((a, t) => a + t, 0) / totals.length
-      const score = config.MINMAX_WEIGHT * min + (1 - config.MINMAX_WEIGHT) * mean
-      return { move, score, min, mean, replies: evaluated }
-    })
-    .sort((a, b) => b.score - a.score)
+  return runToEnd(explainMoveSteps(state, player, config))
 }
 
 /** Лучший ход по maximin с заданными весами; при равных оценках — через rng. */
-export function chooseMove(
+export function* chooseMoveSteps(
   state: GameState,
   player: PlayerId,
   rng: () => number,
   config: NormalConfig
-): Direction {
-  const moves = explainMove(state, player, config)
+): Generator<void, Direction, void> {
+  const moves = yield* explainMoveSteps(state, player, config)
   const best = moves[0].score
   const tied = moves.filter((m) => best - m.score < 1e-9).map((m) => m.move)
   return pick(tied, rng)
 }
 
-/** Бот уровня Normal. Видит только state. */
-export const normalBot: Bot = (state, player, rng = Math.random) =>
-  chooseMove(state, player, rng, NORMAL_CONFIG)
+export function chooseMove(state: GameState, player: PlayerId, rng: () => number, config: NormalConfig): Direction {
+  return runToEnd(chooseMoveSteps(state, player, rng, config))
+}
+
+/** Бот уровня Normal, пошагово. Видит только state. */
+export const normalBotSteps: SteppedBot = (state, player, rng = Math.random) =>
+  chooseMoveSteps(state, player, rng, NORMAL_CONFIG)
+
+/** Бот уровня Normal. */
+export const normalBot: Bot = (state, player, rng) => runToEnd(normalBotSteps(state, player, rng))

@@ -1,8 +1,8 @@
 import { getLegalMoves } from '../engine/moves'
 import { movesAvoidingOwnTrail, step } from './analysis'
-import { chooseMove, EASY_CONFIG } from './normalBot'
+import { chooseMoveSteps, EASY_CONFIG } from './normalBot'
 import { pick } from './rng'
-import type { Bot } from './types'
+import { runToEnd, type Bot, type SteppedBot } from './types'
 
 /**
  * Бот уровня Easy поверх normalBot (EASY_CONFIG):
@@ -11,7 +11,7 @@ import type { Bot } from './types'
  * - ошибки: с вероятностью MISTAKE_RATE берёт случайный ход, не ведущий на свой след;
  * - меньше осторожности (MINMAX_WEIGHT) и вдвое слабее атака.
  */
-export const easyBot: Bot = (state, player, rng = Math.random) => {
+export const easyBotSteps: SteppedBot = function* (state, player, rng = Math.random) {
   const config = EASY_CONFIG
   const { head, direction } = state.players[player]
 
@@ -26,5 +26,7 @@ export const easyBot: Bot = (state, player, rng = Math.random) => {
     if (safe.length > 0) return pick(safe, rng)
   }
 
-  return chooseMove(state, player, rng, config)
+  return yield* chooseMoveSteps(state, player, rng, config)
 }
+
+export const easyBot: Bot = (state, player, rng) => runToEnd(easyBotSteps(state, player, rng))

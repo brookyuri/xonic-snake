@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { MatchController, type MatchOptions } from '../match'
-import type { Bot } from '../../bot/types'
+import { asStepped, type Bot } from '../../bot/types'
 import type { Direction } from '../../engine/types'
 import { assertInvariants } from '../../engine/invariants'
+import { normalBot, normalBotSteps } from '../../bot/normalBot'
+import { mulberry32 } from '../../bot/rng'
 
 const TICK = 280
 
@@ -33,7 +35,7 @@ function setup(extra: Partial<MatchOptions> = {}) {
   const match = new MatchController({
     tickMs: TICK,
     maxRounds: 100,
-    bot: circlingBot,
+    bot: asStepped(circlingBot),
     now: clock.now,
     strict: true,
     ...extra,
@@ -172,7 +174,7 @@ describe('MatchController', () => {
   })
 
   it('in strict mode an illegal bot move is a bug', () => {
-    const { clock, match, finishCountdown } = setup({ bot: scriptedBot(['UP']) })
+    const { clock, match, finishCountdown } = setup({ bot: asStepped(scriptedBot(['UP'])) })
     const end = finishCountdown()
     clock.set(end + TICK)
     // RED стартует с direction DOWN: UP — разворот.
@@ -180,7 +182,7 @@ describe('MatchController', () => {
   })
 
   it('without strict an illegal bot move falls back to the wall rule', () => {
-    const { clock, match, finishCountdown } = setup({ bot: scriptedBot(['UP']), strict: false })
+    const { clock, match, finishCountdown } = setup({ bot: asStepped(scriptedBot(['UP'])), strict: false })
     const end = finishCountdown()
     clock.set(end + TICK)
     match.frame()
@@ -193,12 +195,61 @@ describe('MatchController', () => {
       seen.push(state.round)
       return circlingBot(state, 'P2')
     }
-    const { clock, match, finishCountdown } = setup({ bot: spy })
+    const { clock, match, finishCountdown } = setup({ bot: asStepped(spy) })
     const end = finishCountdown()
     match.steer('LEFT')
     clock.set(end + TICK)
     match.frame()
     expect(seen).toEqual([0])
     expect(match.snapshot.state.round).toBe(1)
+  })
+
+  it('a bot move prepared between ticks gives exactly the same game, one bot call per state', () => {
+    const play = (prepare: boolean) => {
+      let calls = 0
+      const counting: Bot = (state, player, rng) => {
+        calls++
+        return normalBot(state, player, rng)
+      }
+      const { clock, match, finishCountdown } = setup({ bot: asStepped(counting), rng: mulberry32(11), maxRounds: 40 })
+      const end = finishCountdown()
+      const turns: Direction[] = ['LEFT', 'UP', 'UP', 'RIGHT', 'RIGHT', 'DOWN', 'DOWN', 'LEFT']
+      for (let i = 1; i <= 40 && match.snapshot.phase === 'RUNNING'; i++) {
+        if (prepare) {
+          match.prepareBotMove()
+          match.prepareBotMove() // повторный вызов для того же state ничего не пересчитывает
+        }
+        match.steer(turns[i % turns.length])
+        clock.set(end + i * TICK)
+        match.frame()
+      }
+      return { state: JSON.stringify(match.snapshot.state), ticks: match.snapshot.ticks, calls }
+    }
+    const direct = play(false)
+    const prepared = play(true)
+    expect(prepared.state).toBe(direct.state)
+    expect(prepared.calls).toBe(direct.calls)
+    expect(prepared.calls).toBe(prepared.ticks)
+  })
+
+  it('a bot decision sliced into tiny budgets gives the same game as one computed at the tick', () => {
+    const play = (budgetMs: number | null) => {
+      const { clock, match, finishCountdown } = setup({ bot: normalBotSteps, rng: mulberry32(21), maxRounds: 30 })
+      const end = finishCountdown()
+      let slices = 0
+      const turns: Direction[] = ['UP', 'LEFT', 'LEFT', 'UP', 'RIGHT', 'RIGHT', 'RIGHT', 'DOWN']
+      for (let i = 1; i <= 30 && match.snapshot.phase === 'RUNNING'; i++) {
+        // Как в UI: несколько кусков между тиками, возможно не до конца.
+        if (budgetMs !== null) for (let k = 0; k < 3; k++) if (!match.prepareBotMove(budgetMs)) slices++
+        match.steer(turns[i % turns.length])
+        clock.set(end + i * TICK)
+        match.frame()
+      }
+      return { state: JSON.stringify(match.snapshot.state), slices }
+    }
+    const atTick = play(null)
+    const sliced = play(0)
+    expect(sliced.state).toBe(atTick.state)
+    expect(sliced.slices).toBeGreaterThan(0)
   })
 })

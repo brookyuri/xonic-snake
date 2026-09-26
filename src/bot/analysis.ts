@@ -75,8 +75,7 @@ export function distanceToTrail(state: GameState, attacker: PlayerId, victim: Pl
  * ≤ 0 — противник успевает: ходы одновременные, а удар по следу раньше захвата.
  * −Infinity, если пути домой нет; Infinity, если противнику не дойти до следа.
  */
-export function trailRace(state: GameState, player: PlayerId): number {
-  const home = distanceHome(state, player)
+export function trailRace(state: GameState, player: PlayerId, home = distanceHome(state, player)): number {
   if (home === Infinity) return -Infinity
   return distanceToTrail(state, opponentOf(player), player) - home
 }

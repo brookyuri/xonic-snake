@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { BOARD_SIZE } from '../engine/constants'
 import { assertInvariants } from '../engine/invariants'
 import type { Direction, GameState, PlayerId } from '../engine/types'
 import { isTrailInDanger } from '../bot/analysis'
-import { easyBot } from '../bot/easyBot'
-import { normalBot } from '../bot/normalBot'
+import { easyBotSteps } from '../bot/easyBot'
+import { normalBotSteps } from '../bot/normalBot'
 import { FINAL_SECONDS, formatClock, maxRoundsFor, SPEEDS, timeLeftMs } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
 import { MatchController } from '../game/match'
@@ -18,6 +18,7 @@ import { DANGER_MESSAGE, describeRound } from './roundText'
 import type { Settings } from './settings'
 import { markLastGameRematch, recordGame } from './stats'
 import { swipeDirection } from './swipe'
+import { perfEnabled, recordTick } from './perf'
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'UP',
@@ -33,6 +34,9 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
   A: 'LEFT',
   D: 'RIGHT',
 }
+
+/** Сколько бот может думать за один кусок между кадрами, мс. */
+const BOT_SLICE_MS = 8
 
 function territoryCells(state: GameState, player: PlayerId): number {
   let count = 0
@@ -70,7 +74,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
       new MatchController({
         tickMs,
         maxRounds: maxRoundsFor(tickMs),
-        bot: settings.difficulty === 'easy' ? easyBot : normalBot,
+        bot: settings.difficulty === 'easy' ? easyBotSteps : normalBotSteps,
         strict: import.meta.env.DEV,
       })
   )
@@ -116,6 +120,28 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [controller])
+
+  // Ход бота на следующий тик считаем после отрисовки текущего — кусками по BOT_SLICE_MS,
+  // чтобы между кадрами не было длинных задач. Не успели к тику — контроллер досчитает сам.
+  useEffect(() => {
+    if (phase !== 'RUNNING' && phase !== 'COUNTDOWN') return
+    let id = setTimeout(function slice() {
+      if (!controller.prepareBotMove(BOT_SLICE_MS)) id = setTimeout(slice, 0)
+    }, 0)
+    return () => clearTimeout(id)
+  }, [controller, phase, ticks])
+
+  // ?perf: сколько прошло от начала тика до коммита DOM.
+  useLayoutEffect(() => {
+    if (!perfEnabled || ticks === 0) return
+    recordTick({
+      tick: ticks,
+      at: snap.lastTickAt,
+      costMs: snap.lastTickCostMs,
+      botMs: controller.lastBotMs,
+      commitMs: performance.now() - snap.lastTickAt,
+    })
+  }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Всё, что происходит один раз за тик.
   useEffect(() => {
