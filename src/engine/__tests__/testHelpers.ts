@@ -100,11 +100,12 @@ export function stateFromGrid(grid: string[], options: GridOptions = {}): GameSt
           cell.trail = 'P2'
           break
         case '1':
-          head.P1 = { x, y }
+        case '2': {
+          const id = ch === '1' ? 'P1' : 'P2'
+          if (head[id]) throw new Error(`Duplicate head '${ch}' at (${x},${y})`)
+          head[id] = { x, y }
           break
-        case '2':
-          head.P2 = { x, y }
-          break
+        }
         default:
           throw new Error(`Unknown symbol '${ch}' at (${x},${y})`)
       }
