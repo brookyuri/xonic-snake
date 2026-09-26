@@ -5,7 +5,6 @@ import { createInitialState } from '../../engine/state'
 describe('speed and match length (5.3)', () => {
   it('maxRounds = ceil(120000 / tickMs)', () => {
     expect(maxRoundsFor(SPEEDS.slow)).toBe(300)
-    // Таблица 5.3 пишет 428, но по формуле ceil(428.57) = 429.
     expect(maxRoundsFor(SPEEDS.normal)).toBe(429)
     expect(maxRoundsFor(SPEEDS.fast)).toBe(667)
   })

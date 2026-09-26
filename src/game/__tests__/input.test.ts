@@ -61,6 +61,16 @@ describe('move selection (5.1)', () => {
     })
   })
 
+  it('5.1.1 example: going RIGHT along the top row, a queued UP is dropped and the next press kept', () => {
+    const state = atTopEdge(3)
+    state.players.P1.direction = 'RIGHT'
+    // RIGHT не упирается в стену → UP отбрасывается, едем RIGHT; DOWN ждёт следующего тика.
+    const first = takeHumanMove(state, 'P1', ['UP', 'DOWN'])
+    expect(first).toEqual({ move: 'RIGHT', queue: ['DOWN'] })
+    const second = takeHumanMove(state, 'P1', first.queue)
+    expect(second).toEqual({ move: 'DOWN', queue: [] })
+  })
+
   it('a queued move into the wall is consumed and replaced by the wall rule', () => {
     const state = atTopEdge(0)
     state.players.P1.direction = 'RIGHT'
