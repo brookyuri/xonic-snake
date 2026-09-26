@@ -6,7 +6,7 @@ import { resolveRound } from '../engine/resolve'
 import { BOARD_SIZE } from '../engine/constants'
 import type { Direction, GameState, PlayerId } from '../engine/types'
 import { randomBot } from '../bot/randomBot'
-import { Board } from './Board'
+import { Board, FLASH_MS, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
 
@@ -34,6 +34,8 @@ function territoryPercent(state: GameState, player: PlayerId): number {
 export function App() {
   const [state, setState] = useState<GameState>(createInitialState)
   const stateRef = useRef(state)
+  const [flash, setFlash] = useState<Flash | null>(null)
+  const flashId = useRef(0)
 
   const commit = useCallback((next: GameState) => {
     stateRef.current = next
@@ -47,7 +49,7 @@ export function App() {
       if (!getLegalMoves(current, 'P1').includes(direction)) return
       // Раздел 5.1: ход бота вычисляется от состояния до хода человека.
       const botMove = randomBot(current)
-      const { state: next } = resolveRound(current, direction, botMove)
+      const { state: next, events } = resolveRound(current, direction, botMove)
       if (import.meta.env.DEV) {
         try {
           assertInvariants(next)
@@ -56,6 +58,25 @@ export function App() {
         }
       }
       commit(next)
+
+      const captured = new Map<number, PlayerId>()
+      for (const event of events) {
+        if (event.type !== 'CAPTURED') continue
+        for (const c of event.cells) captured.set(c.y * BOARD_SIZE + c.x, event.player)
+      }
+      if (captured.size > 0) {
+        const id = ++flashId.current
+        setFlash({ cells: captured, lit: true })
+        // Два кадра: сначала рисуем яркую подсветку, затем отпускаем её — CSS transition гасит за 300ms.
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            if (flashId.current === id) setFlash({ cells: captured, lit: false })
+          })
+        )
+        setTimeout(() => {
+          if (flashId.current === id) setFlash(null)
+        }, FLASH_MS + 50)
+      }
     },
     [commit]
   )
@@ -85,7 +106,7 @@ export function App() {
           <span className="text-red-300">RED {redPercent}%</span>
         </div>
 
-        <Board state={state} />
+        <Board state={state} flash={flash} />
 
         <div className="flex justify-center pt-2">
           <DPad legalMoves={legalMoves} onMove={handleMove} />

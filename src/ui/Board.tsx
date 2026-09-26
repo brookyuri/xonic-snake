@@ -1,5 +1,13 @@
-import type { GameState } from '../engine/types'
+import type { GameState, PlayerId } from '../engine/types'
 import { BOARD_SIZE } from '../engine/constants'
+
+export const FLASH_MS = 300
+
+/** Клетки, захваченные в последнем раунде (ключ y*BOARD_SIZE+x → захватчик). */
+export interface Flash {
+  cells: Map<number, PlayerId>
+  lit: boolean
+}
 
 const COLOR = {
   empty: '#0d0d13',
@@ -9,9 +17,11 @@ const COLOR = {
   p2Trail: '#fb4142',
   p1Head: '#a5f3fc',
   p2Head: '#ffc2c8',
+  p1Flash: '#cffafe',
+  p2Flash: '#ffe4e6',
 }
 
-export function Board({ state }: { state: GameState }) {
+export function Board({ state, flash }: { state: GameState; flash: Flash | null }) {
   const { P1, P2 } = state.players
 
   return (
@@ -35,8 +45,20 @@ export function Board({ state }: { state: GameState }) {
 
           const headColor = isP1Head ? COLOR.p1Head : isP2Head ? COLOR.p2Head : null
 
+          const capturer = flash?.cells.get(y * BOARD_SIZE + x)
+          let transition: string | undefined
+          if (capturer && flash?.lit) {
+            background = capturer === 'P1' ? COLOR.p1Flash : COLOR.p2Flash
+          } else if (capturer) {
+            transition = `background-color ${FLASH_MS}ms ease-out`
+          }
+
           return (
-            <div key={`${x}-${y}`} className="relative" style={{ backgroundColor: background }}>
+            <div
+              key={`${x}-${y}`}
+              className="relative"
+              style={{ backgroundColor: background, transition }}
+            >
               {headColor && (
                 <div
                   className="absolute inset-[18%] rounded-full"
