@@ -110,32 +110,36 @@ export function App() {
   const eventLine = [...describeRound(lastEvents), ...(inDanger ? [DANGER_MESSAGE] : [])].join(' · ')
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex justify-center">
-      <div className="relative w-full max-w-[420px] px-4 py-4 flex flex-col gap-4">
-        <div className="flex items-center justify-between text-sm font-semibold tracking-wide">
-          <span className="text-cyan-300">BLUE {bluePercent}%</span>
-          <span className="text-neutral-500">Round {state.round}</span>
-          <span className="text-red-300">RED {redPercent}%</span>
+    <div className="screen">
+      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
+        <header className="pt-3">
+          <div className="flex items-center justify-between text-sm font-semibold tracking-wide">
+            <span className="text-cyan-300">BLUE {bluePercent}%</span>
+            <span className="text-neutral-500">Round {state.round}</span>
+            <span className="text-red-300">RED {redPercent}%</span>
+          </div>
+          <div
+            data-testid="event-line"
+            className={`mt-1 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
+          >
+            {eventLine}
+          </div>
+        </header>
+
+        {/* Поле — наибольший квадрат, который помещается между HUD и D-pad. */}
+        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-2">
+          <Board
+            state={state}
+            flash={flash}
+            previousHeads={previousHeads}
+            roundKey={moveCount}
+            dangerTrail={inDanger}
+            highlight={end?.highlight}
+            className="board-fit"
+          />
         </div>
 
-        <div
-          data-testid="event-line"
-          className={`-mt-2 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
-        >
-          {eventLine}
-        </div>
-
-        <Board
-          state={state}
-          flash={flash}
-          previousHeads={previousHeads}
-          roundKey={moveCount}
-          dangerTrail={inDanger}
-          highlight={end?.highlight}
-          className="w-full"
-        />
-
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
           <DPad legalMoves={legalMoves} onMove={handleMove} />
         </div>
 

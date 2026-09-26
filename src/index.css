@@ -11,6 +11,30 @@ body,
 body {
   margin: 0;
   background: #08080c;
+  /* Частые тапы по D-pad: без зума двойным тапом, без выделения текста, без подсветки тапа. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Экран на всю видимую высоту телефона с учётом выреза и home-индикатора. */
+.screen {
+  height: 100dvh;
+  overflow: hidden;
+  background: #0a0a0a;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  box-sizing: border-box;
+}
+
+.board-slot {
+  container-type: size;
+}
+
+.board-fit {
+  width: min(100cqw, 100cqh);
 }
 
 /* Клетка, где голова стояла в прошлом раунде: вспыхивает и гаснет. */

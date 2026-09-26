@@ -15,11 +15,11 @@ const BUTTONS: { dir: Direction; label: string; area: string }[] = [
 export function DPad({ legalMoves, onMove }: Props) {
   return (
     <div
-      className="grid gap-2"
+      className="grid gap-1.5"
       style={{
         gridTemplateAreas: '". up ." "left . right" ". down ."',
-        gridTemplateColumns: 'repeat(3, 3.5rem)',
-        gridTemplateRows: 'repeat(3, 3.5rem)',
+        gridTemplateColumns: 'repeat(3, 4rem)',
+        gridTemplateRows: 'repeat(3, 4rem)',
       }}
     >
       {BUTTONS.map(({ dir, label, area }) => (
@@ -30,7 +30,7 @@ export function DPad({ legalMoves, onMove }: Props) {
           disabled={!legalMoves.includes(dir)}
           onClick={() => onMove(dir)}
           style={{ gridArea: area }}
-          className="min-w-14 min-h-14 w-14 h-14 rounded-lg bg-neutral-800 text-neutral-100 text-2xl flex items-center justify-center select-none active:bg-neutral-700 disabled:opacity-25 disabled:cursor-not-allowed"
+          className="h-16 w-16 rounded-xl bg-neutral-800 text-neutral-100 text-2xl flex items-center justify-center select-none active:bg-neutral-700 disabled:opacity-25 disabled:cursor-not-allowed"
         >
           {label}
         </button>
