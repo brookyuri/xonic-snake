@@ -1,8 +1,12 @@
 import { getLegalMoves } from '../engine/moves'
-import type { Direction, GameState } from '../engine/types'
+import type { Direction, GameState, PlayerId } from '../engine/types'
 
 // Раздел 5.1: бот видит только state, никогда не получает ход человека.
-export function randomBot(state: GameState): Direction {
-  const legal = getLegalMoves(state, 'P2')
-  return legal[Math.floor(Math.random() * legal.length)]
+export function randomBot(
+  state: GameState,
+  rng: () => number = Math.random,
+  player: PlayerId = 'P2'
+): Direction {
+  const legal = getLegalMoves(state, player)
+  return legal[Math.floor(rng() * legal.length)]
 }
