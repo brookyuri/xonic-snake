@@ -50,5 +50,6 @@ export type GameEvent =
   | { type: 'MOVED'; player: PlayerId; from: Pos; to: Pos }
   | { type: 'TRAIL_STARTED'; player: PlayerId }
   | { type: 'CAPTURED'; player: PlayerId; cells: Pos[]; stolenFromEnemy: number }
-  | { type: 'DIED'; player: PlayerId; reason: Reason }
+  /** at — клетка, которую показывает экран конца игры (удар, поглощённый след, голова). */
+  | { type: 'DIED'; player: PlayerId; reason: Reason; at: Pos }
   | { type: 'GAME_OVER'; winner: PlayerId | 'DRAW'; reason: Reason }

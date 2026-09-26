@@ -11,6 +11,7 @@ import { Board, FLASH_MS, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
 import { DANGER_MESSAGE, describeRound } from './roundText'
+import { describeEnd } from './endText'
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'UP',
@@ -105,6 +106,7 @@ export function App() {
   const bluePercent = territoryPercent(state, 'P1')
   const redPercent = territoryPercent(state, 'P2')
   const inDanger = state.status === 'PLAYING' && isTrailInDanger(state, 'P1')
+  const end = state.status === 'FINISHED' ? describeEnd(state, lastEvents) : null
   const eventLine = [...describeRound(lastEvents), ...(inDanger ? [DANGER_MESSAGE] : [])].join(' · ')
 
   return (
@@ -129,6 +131,7 @@ export function App() {
           previousHeads={previousHeads}
           roundKey={moveCount}
           dangerTrail={inDanger}
+          highlight={end?.highlight}
           className="w-full"
         />
 
@@ -136,9 +139,10 @@ export function App() {
           <DPad legalMoves={legalMoves} onMove={handleMove} />
         </div>
 
-        {state.status === 'FINISHED' && state.result && (
+        {end && (
           <GameOverScreen
-            result={state.result}
+            title={end.title}
+            reason={end.reason}
             bluePercent={bluePercent}
             redPercent={redPercent}
             onPlayAgain={() => {

@@ -114,43 +114,43 @@ export function resolveRound(
     if (winner === 'DRAW') {
       working.players.P1.alive = false
       working.players.P2.alive = false
-      events.push({ type: 'DIED', player: 'P1', reason: 'HEAD_ON' })
-      events.push({ type: 'DIED', player: 'P2', reason: 'HEAD_ON' })
+      events.push({ type: 'DIED', player: 'P1', reason: 'HEAD_ON', at: newHead.P1 })
+      events.push({ type: 'DIED', player: 'P2', reason: 'HEAD_ON', at: newHead.P2 })
     } else {
       const loser = OTHER[winner]
       working.players[loser].alive = false
-      events.push({ type: 'DIED', player: loser, reason: 'HEAD_ON' })
+      events.push({ type: 'DIED', player: loser, reason: 'HEAD_ON', at: newHead[loser] })
     }
     return finish({ winner, reason: 'HEAD_ON' })
   }
 
   // Шаг 4: удары по следам (используем следы S0 — исходный state, ещё не мутирован)
-  const death: Record<PlayerId, Reason | null> = { P1: null, P2: null }
+  // at — клетка удара: куда встала голова, наступившая на след.
+  const death: Record<PlayerId, { reason: Reason; at: Pos } | null> = { P1: null, P2: null }
   for (const id of PLAYER_IDS) {
-    const cell = state.board[newHead[id].y][newHead[id].x]
+    const at = newHead[id]
+    const cell = state.board[at.y][at.x]
     if (cell.trail === OTHER[id]) {
-      if (death[OTHER[id]] === null) death[OTHER[id]] = 'TRAIL_CUT'
+      if (death[OTHER[id]] === null) death[OTHER[id]] = { reason: 'TRAIL_CUT', at }
     } else if (cell.trail === id) {
-      if (death[id] === null) death[id] = 'SELF_TRAIL'
+      if (death[id] === null) death[id] = { reason: 'SELF_TRAIL', at }
     }
   }
 
   if (death.P1 || death.P2) {
     const p1Died = death.P1 !== null
     const p2Died = death.P2 !== null
-    if (p1Died) {
-      working.players.P1.alive = false
-      events.push({ type: 'DIED', player: 'P1', reason: death.P1! })
-    }
-    if (p2Died) {
-      working.players.P2.alive = false
-      events.push({ type: 'DIED', player: 'P2', reason: death.P2! })
+    for (const id of PLAYER_IDS) {
+      const d = death[id]
+      if (!d) continue
+      working.players[id].alive = false
+      events.push({ type: 'DIED', player: id, reason: d.reason, at: d.at })
     }
     if (p1Died && p2Died) {
       return finish({ winner: 'DRAW', reason: 'MUTUAL' })
     }
     const loser: PlayerId = p1Died ? 'P1' : 'P2'
-    return finish({ winner: OTHER[loser], reason: death[loser]! })
+    return finish({ winner: OTHER[loser], reason: death[loser]!.reason })
   }
 
   // Шаг 5: захваты (оба вычисляются от состояния после шага 2, до применения любого захвата)
@@ -169,7 +169,8 @@ export function resolveRound(
   }
   const bothClaim = (pos: Pos) => claimedBy.P1.has(key(pos)) && claimedBy.P2.has(key(pos))
 
-  const engulfed: Record<PlayerId, boolean> = { P1: false, P2: false }
+  // Для каждого поглощённого — первая клетка его следа, попавшая в захват.
+  const engulfedAt: Record<PlayerId, Pos | null> = { P1: null, P2: null }
   for (const id of PLAYER_IDS) {
     if (capturedCells[id].length === 0) continue
     const enemy = OTHER[id]
@@ -182,7 +183,7 @@ export function resolveRound(
       // Пересечение не вызывает ENGULFED и не попадает в CAPTURED (шаг 5, v0.4).
       if (bothClaim(pos)) continue
       const before = state.board[pos.y][pos.x]
-      if (before.trail === enemy) engulfed[enemy] = true
+      if (before.trail === enemy && !engulfedAt[enemy]) engulfedAt[enemy] = pos
       if (before.territory === enemy) stolenFromEnemy++
       cell.territory = id
       applied.push(pos)
@@ -191,21 +192,22 @@ export function resolveRound(
     events.push({ type: 'CAPTURED', player: id, cells: applied, stolenFromEnemy })
   }
 
-  if (engulfed.P1 || engulfed.P2) {
+  if (engulfedAt.P1 || engulfedAt.P2) {
     for (const id of PLAYER_IDS) {
-      if (!engulfed[id]) continue
+      const at = engulfedAt[id]
+      if (!at) continue
       // След погибшего от ENGULFED снимается целиком (шаг 5, v0.4).
       for (const pos of working.players[id].trail) {
         working.board[pos.y][pos.x].trail = 'NONE'
       }
       working.players[id].trail = []
       working.players[id].alive = false
-      events.push({ type: 'DIED', player: id, reason: 'ENGULFED' })
+      events.push({ type: 'DIED', player: id, reason: 'ENGULFED', at })
     }
-    if (engulfed.P1 && engulfed.P2) {
+    if (engulfedAt.P1 && engulfedAt.P2) {
       return finish({ winner: 'DRAW', reason: 'MUTUAL' })
     }
-    const loser: PlayerId = engulfed.P1 ? 'P1' : 'P2'
+    const loser: PlayerId = engulfedAt.P1 ? 'P1' : 'P2'
     return finish({ winner: OTHER[loser], reason: 'ENGULFED' })
   }
 
@@ -230,7 +232,7 @@ export function resolveRound(
   const noTerritory = PLAYER_IDS.filter((id) => finalTerritory[id] === 0)
   for (const loser of noTerritory) {
     working.players[loser].alive = false
-    events.push({ type: 'DIED', player: loser, reason: 'NO_TERRITORY' })
+    events.push({ type: 'DIED', player: loser, reason: 'NO_TERRITORY', at: working.players[loser].head })
   }
   if (noTerritory.length === 2) {
     return finish({ winner: 'DRAW', reason: 'NO_TERRITORY' })

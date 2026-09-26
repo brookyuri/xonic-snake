@@ -306,3 +306,42 @@ describe('board size sanity', () => {
     for (const row of state.board) expect(row.length).toBe(BOARD_SIZE)
   })
 })
+
+describe('DIED.at — the cell the end screen highlights', () => {
+  const died = (events: ReturnType<typeof play>['events']) =>
+    events.filter((e) => e.type === 'DIED')
+
+  it('TRAIL_CUT points at the cut trail cell', () => {
+    const grid = mergeFragment(emptyGrid(), ['.bbbb1.', '..2....'], 3, 6)
+    const state = stateFromGrid(grid, {
+      direction: { P1: 'RIGHT', P2: 'UP' },
+      trail: { P1: [{ x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 }, { x: 8, y: 6 }] },
+    })
+    expect(died(play(state, 'UP', 'UP').events)).toEqual([
+      { type: 'DIED', player: 'P1', reason: 'TRAIL_CUT', at: { x: 5, y: 6 } },
+    ])
+  })
+
+  it('SELF_TRAIL points at the own trail cell stepped on', () => {
+    const grid = emptyGrid()
+    grid[9] = '.......bb......'
+    grid[10] = '.......b1......'
+    grid[0] = '2..............'
+    const state = stateFromGrid(grid, {
+      direction: { P1: 'DOWN', P2: 'RIGHT' },
+      trail: { P1: [{ x: 7, y: 10 }, { x: 7, y: 9 }, { x: 8, y: 9 }, { x: 8, y: 10 }] },
+    })
+    expect(died(play(state, 'LEFT', 'RIGHT').events)).toEqual([
+      { type: 'DIED', player: 'P1', reason: 'SELF_TRAIL', at: { x: 7, y: 10 } },
+    ])
+  })
+
+  it('HEAD_ON points at the collision cell', () => {
+    const grid = emptyGrid()
+    grid[5] = '.....1R2.......'
+    const state = stateFromGrid(grid, { direction: { P1: 'UP', P2: 'UP' } })
+    expect(died(play(state, 'RIGHT', 'LEFT').events)).toEqual([
+      { type: 'DIED', player: 'P1', reason: 'HEAD_ON', at: { x: 6, y: 5 } },
+    ])
+  })
+})

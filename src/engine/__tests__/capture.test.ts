@@ -238,7 +238,7 @@ describe('T16 — engulfing the enemy trail', () => {
     expect(capturedBy(events, 'P1')?.stolenFromEnemy).toBe(1)
     const tail = events.slice(-2)
     expect(tail).toEqual([
-      { type: 'DIED', player: 'P2', reason: 'ENGULFED' },
+      { type: 'DIED', player: 'P2', reason: 'ENGULFED', at: p(5, 12) },
       { type: 'GAME_OVER', winner: 'P1', reason: 'ENGULFED' },
     ])
   })
@@ -312,7 +312,7 @@ describe('T19 — territory reaches zero', () => {
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'P1', reason: 'NO_TERRITORY' })
     expect(events.slice(-2)).toEqual([
-      { type: 'DIED', player: 'P2', reason: 'NO_TERRITORY' },
+      { type: 'DIED', player: 'P2', reason: 'NO_TERRITORY', at: p(9, 11) },
       { type: 'GAME_OVER', winner: 'P1', reason: 'NO_TERRITORY' },
     ])
   })

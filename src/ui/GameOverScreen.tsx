@@ -1,41 +1,45 @@
-import type { GameResult, Reason } from '../engine/types'
-
 interface Props {
-  result: GameResult
+  title: string
+  reason: string
   bluePercent: number
   redPercent: number
   onPlayAgain: () => void
+  onMenu?: () => void
 }
 
-const REASON_LABEL: Record<Reason, string> = {
-  TRAIL_CUT: 'Trail cut',
-  SELF_TRAIL: 'Ran into own trail',
-  ENGULFED: 'Territory engulfed',
-  HEAD_ON: 'Head-on collision',
-  MUTUAL: 'Mutual collision',
-  NO_TERRITORY: 'Lost all territory',
-  ROUND_LIMIT: 'Round limit reached',
-}
-
-export function GameOverScreen({ result, bluePercent, redPercent, onPlayAgain }: Props) {
-  const title =
-    result.winner === 'DRAW' ? 'DRAW' : result.winner === 'P1' ? 'BLUE WINS' : 'RED WINS'
-
+/**
+ * Полупрозрачный оверлей: поле с подсвеченной клеткой столкновения остаётся видно,
+ * итог — в нижней части экрана, где был D-pad.
+ */
+export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayAgain, onMenu }: Props) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/85 text-neutral-100 rounded-lg">
-      <div className="text-3xl font-bold tracking-wide">{title}</div>
-      <div className="text-neutral-400">{REASON_LABEL[result.reason]}</div>
-      <div className="flex gap-6 text-sm">
-        <span className="text-cyan-300">BLUE {bluePercent}%</span>
-        <span className="text-red-300">RED {redPercent}%</span>
+    <div className="absolute inset-0 flex flex-col justify-end bg-black/40" data-testid="game-over">
+      <div className="mx-4 mb-4 flex flex-col items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950/95 px-4 py-5 text-neutral-100">
+        <div className="text-3xl font-bold tracking-wide">{title}</div>
+        <div className="text-center text-lg text-neutral-200">{reason}</div>
+        <div className="flex gap-6 text-sm">
+          <span className="text-cyan-300">BLUE {bluePercent}%</span>
+          <span className="text-red-300">RED {redPercent}%</span>
+        </div>
+        <div className="mt-1 flex w-full gap-3">
+          <button
+            type="button"
+            onClick={onPlayAgain}
+            className="min-h-14 flex-1 rounded-lg bg-cyan-400 text-lg font-semibold text-neutral-950 active:bg-cyan-300"
+          >
+            PLAY AGAIN
+          </button>
+          {onMenu && (
+            <button
+              type="button"
+              onClick={onMenu}
+              className="min-h-14 flex-1 rounded-lg bg-neutral-800 text-lg text-neutral-100 active:bg-neutral-700"
+            >
+              MENU
+            </button>
+          )}
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onPlayAgain}
-        className="mt-4 min-h-14 px-6 rounded-lg bg-neutral-800 text-neutral-100 text-lg"
-      >
-        PLAY AGAIN
-      </button>
     </div>
   )
 }
