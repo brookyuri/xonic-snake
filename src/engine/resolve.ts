@@ -228,14 +228,15 @@ export function resolveRound(
     P2: territorySize(working, 'P2'),
   }
   const noTerritory = PLAYER_IDS.filter((id) => finalTerritory[id] === 0)
+  for (const loser of noTerritory) {
+    working.players[loser].alive = false
+    events.push({ type: 'DIED', player: loser, reason: 'NO_TERRITORY' })
+  }
   if (noTerritory.length === 2) {
     return finish({ winner: 'DRAW', reason: 'NO_TERRITORY' })
   }
   if (noTerritory.length === 1) {
-    const loser = noTerritory[0]
-    working.players[loser].alive = false
-    events.push({ type: 'DIED', player: loser, reason: 'NO_TERRITORY' })
-    return finish({ winner: OTHER[loser], reason: 'NO_TERRITORY' })
+    return finish({ winner: OTHER[noTerritory[0]], reason: 'NO_TERRITORY' })
   }
 
   working.round += 1

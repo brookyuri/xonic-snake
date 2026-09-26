@@ -1,7 +1,6 @@
 import { BOARD_SIZE, START } from './constants'
 import type { Cell, GameState, Player, PlayerId } from './types'
 
-// board[y][x] — внешний индекс строка (y), внутренний столбец (x); совпадает с ASCII-сеткой раздела 1.
 function createEmptyBoard(): Cell[][] {
   const board: Cell[][] = []
   for (let y = 0; y < BOARD_SIZE; y++) {
