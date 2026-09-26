@@ -4,6 +4,10 @@ A real-time territory duel for the mobile browser. You and the computer each ste
 
 Built as a portfolio project and a game-design experiment: the rules are specified up front, the engine is pure and tested, and the bot is explainable.
 
+## Play
+
+**https://territory-snake.vercel.app** — best on a phone. Add `?perf` to the URL to see tick timing and copy a performance report from the end screen.
+
 ## Run it
 
 ```bash
