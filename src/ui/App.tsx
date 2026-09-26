@@ -48,7 +48,7 @@ export function App() {
       if (current.status !== 'PLAYING') return
       if (!getLegalMoves(current, 'P1').includes(direction)) return
       // Раздел 5.1: ход бота вычисляется от состояния до хода человека.
-      const botMove = randomBot(current)
+      const botMove = randomBot(current, 'P2')
       const { state: next, events } = resolveRound(current, direction, botMove)
       if (import.meta.env.DEV) {
         try {
