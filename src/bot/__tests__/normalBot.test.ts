@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { normalBot, explainMove } from '../normalBot'
 import { mulberry32 } from '../rng'
-import { mergeFragment, startGrid, stateFromGrid } from '../../engine/__tests__/testHelpers'
+import { emptyGrid, startGrid, stateFromGrid } from '../../engine/__tests__/testHelpers'
 import type { Pos } from '../../engine/types'
 
 const p = (x: number, y: number): Pos => ({ x, y })
@@ -22,19 +22,27 @@ describe('normalBot', () => {
     expect(explainMove(state, 'P2')[0].min).toBe(10_000)
   })
 
-  it('closes the T04 loop instead of extending it (capture)', () => {
-    const grid = mergeFragment(
-      startGrid(),
-      ['......', '..bbb.', '..b.b.', '.BBB1.', '.BBB..', '.BBB..'],
-      5,
-      8
-    )
+  it('closes a long loop with a wall pocket instead of extending it (capture)', () => {
+    // Позиция T05: след 13 клеток, замыкание DOWN даёт 17 клеток вместе с карманом у стены.
+    const grid = emptyGrid()
+    grid[1] = '......RRR......'
+    grid[2] = '......R2R......'
+    grid[3] = '......RRR......'
+    grid[11] = '.bbbb1.........'
+    grid[12] = '.bbbbBBBBB.....'
+    grid[13] = '.bb..BBBBB.....'
+    grid[14] = '.bb..BBBBB.....'
     const state = stateFromGrid(grid, {
-      direction: { P1: 'DOWN', P2: 'DOWN' },
+      direction: { P1: 'RIGHT', P2: 'DOWN' },
       headCellUnder: { P2: 'P2' },
-      trail: { P1: [p(7, 10), p(7, 9), p(8, 9), p(9, 9), p(9, 10), p(9, 11)] },
+      trail: {
+        P1: [
+          p(4, 12), p(3, 12), p(2, 12), p(2, 13), p(2, 14), p(1, 14),
+          p(1, 13), p(1, 12), p(1, 11), p(2, 11), p(3, 11), p(4, 11), p(5, 11),
+        ],
+      },
     })
-    expect(normalBot(state, 'P1', mulberry32(1))).toBe('LEFT')
+    expect(normalBot(state, 'P1', mulberry32(1))).toBe('DOWN')
   })
 
   it('returns home when the enemy can reach the trail first (threat)', () => {
