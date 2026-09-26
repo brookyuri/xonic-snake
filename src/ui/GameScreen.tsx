@@ -12,6 +12,7 @@ import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
 import { DANGER_MESSAGE, describeRound } from './roundText'
 import { describeEnd } from './endText'
+import { markLastGameRematch, recordGame } from './stats'
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'UP',
@@ -24,14 +25,18 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
   d: 'RIGHT',
 }
 
-function territoryPercent(state: GameState, player: PlayerId): number {
+function territoryCells(state: GameState, player: PlayerId): number {
   let count = 0
   for (const row of state.board) {
     for (const cell of row) {
       if (cell.territory === player) count++
     }
   }
-  return Math.round((count / (BOARD_SIZE * BOARD_SIZE)) * 100)
+  return count
+}
+
+function territoryPercent(state: GameState, player: PlayerId): number {
+  return Math.round((territoryCells(state, player) / (BOARD_SIZE * BOARD_SIZE)) * 100)
 }
 
 export function GameScreen({ onMenu }: { onMenu: () => void }) {
@@ -42,6 +47,8 @@ export function GameScreen({ onMenu }: { onMenu: () => void }) {
   const [previousHeads, setPreviousHeads] = useState<Record<PlayerId, Pos> | null>(null)
   const [lastEvents, setLastEvents] = useState<GameEvent[]>([])
   const [moveCount, setMoveCount] = useState(0)
+  // Метрики текущей партии для ts_games.
+  const game = useRef({ startedAt: new Date().toISOString(), rounds: 0, captures: 0 })
 
   const commit = useCallback((next: GameState) => {
     stateRef.current = next
@@ -67,6 +74,21 @@ export function GameScreen({ onMenu }: { onMenu: () => void }) {
       setPreviousHeads({ P1: current.players.P1.head, P2: current.players.P2.head })
       setLastEvents(events)
       setMoveCount((n) => n + 1)
+
+      game.current.rounds++
+      game.current.captures += events.filter((e) => e.type === 'CAPTURED' && e.player === 'P1').length
+      if (next.status === 'FINISHED') {
+        recordGame(
+          {
+            ...game.current,
+            winner: next.result!.winner,
+            reason: next.result!.reason,
+            blueCells: territoryCells(next, 'P1'),
+            redCells: territoryCells(next, 'P2'),
+          },
+          territoryPercent(next, 'P1')
+        )
+      }
 
       const captured = new Map<number, PlayerId>()
       for (const event of events) {
@@ -150,6 +172,8 @@ export function GameScreen({ onMenu }: { onMenu: () => void }) {
             bluePercent={bluePercent}
             redPercent={redPercent}
             onPlayAgain={() => {
+              markLastGameRematch()
+              game.current = { startedAt: new Date().toISOString(), rounds: 0, captures: 0 }
               commit(createInitialState())
               setPreviousHeads(null)
               setLastEvents([])
