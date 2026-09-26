@@ -179,8 +179,7 @@ export function resolveRound(
       const cell = working.board[pos.y][pos.x]
       // Оба захватчика очищают свои следы, поэтому слой trail чистится и на пересечении.
       cell.trail = 'NONE'
-      // TODO(rules): след противника на клетке пересечения не считается поглощением —
-      // противник сам замкнул контур в этом раунде.
+      // Пересечение не вызывает ENGULFED и не попадает в CAPTURED (шаг 5, v0.4).
       if (bothClaim(pos)) continue
       const before = state.board[pos.y][pos.x]
       if (before.trail === enemy) engulfed[enemy] = true
@@ -195,8 +194,7 @@ export function resolveRound(
   if (engulfed.P1 || engulfed.P2) {
     for (const id of PLAYER_IDS) {
       if (!engulfed[id]) continue
-      // TODO(rules): остаток следа погибшего игрока снимаем целиком, иначе список
-      // player.trail разорвётся на куски и нарушит I1/I5.
+      // След погибшего от ENGULFED снимается целиком (шаг 5, v0.4).
       for (const pos of working.players[id].trail) {
         working.board[pos.y][pos.x].trail = 'NONE'
       }
