@@ -1,32 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialState } from '../state'
-import { resolveRound } from '../resolve'
 import { BOARD_SIZE } from '../constants'
-import type { GameState, PlayerId } from '../types'
-import { stateFromGrid, emptyGrid, mergeFragment } from './testHelpers'
-
-function territorySize(state: GameState, player: PlayerId): number {
-  let count = 0
-  for (const row of state.board) {
-    for (const cell of row) {
-      if (cell.territory === player) count++
-    }
-  }
-  return count
-}
+import { stateFromGrid, emptyGrid, mergeFragment, play, territorySize } from './testHelpers'
 
 describe('T01 — exit home and start trail', () => {
   it('stays trail-less while on own territory, starts trail once outside', () => {
     let state = createInitialState()
 
-    let res = resolveRound(state, 'UP', 'DOWN')
+    let res = play(state, 'UP', 'DOWN')
     state = res.state
     expect(state.players.P1.head).toEqual({ x: 7, y: 11 })
     expect(state.players.P1.trail).toEqual([])
     expect(state.board[11][7].trail).toBe('NONE')
     expect(res.events).not.toContainEqual({ type: 'TRAIL_STARTED', player: 'P1' })
 
-    res = resolveRound(state, 'UP', 'DOWN')
+    res = play(state, 'UP', 'DOWN')
     state = res.state
     expect(state.players.P1.head).toEqual({ x: 7, y: 10 })
     expect(state.players.P1.trail).toEqual([{ x: 7, y: 10 }])
@@ -40,10 +28,18 @@ describe('T06 — trail cut', () => {
     const grid = mergeFragment(emptyGrid(), ['.bbbb1.', '..2....'], 3, 6)
     const state = stateFromGrid(grid, {
       direction: { P1: 'RIGHT', P2: 'UP' },
-      trail: { P1: [{ x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 }] },
+      trail: {
+        P1: [
+          { x: 4, y: 6 },
+          { x: 5, y: 6 },
+          { x: 6, y: 6 },
+          { x: 7, y: 6 },
+          { x: 8, y: 6 },
+        ],
+      },
     })
 
-    const { state: next } = resolveRound(state, 'UP', 'UP')
+    const { state: next } = play(state, 'UP', 'UP')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'P2', reason: 'TRAIL_CUT' })
@@ -74,11 +70,9 @@ describe('T07 — trail cut happens before capture ("strike first")', () => {
       direction: { P1: 'DOWN', P2: 'UP' },
       trail: { P1: [{ x: 9, y: 12 }, { x: 9, y: 13 }], P2: [{ x: 9, y: 14 }] },
     })
-    state.board[13][9].trail = 'P1'
-    state.board[14][9].trail = 'P2'
 
     const before = territorySize(state, 'P1')
-    const { state: next } = resolveRound(state, 'LEFT', 'UP')
+    const { state: next } = play(state, 'LEFT', 'UP')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'P2', reason: 'TRAIL_CUT' })
@@ -91,14 +85,25 @@ describe('T08 — mutual trail cut', () => {
   it('is a DRAW with reason MUTUAL', () => {
     const grid = emptyGrid()
     grid[4] = '......2r1......'
-    grid[5] = '......b........'
+    grid[5] = '......bbb......'
 
     const state = stateFromGrid(grid, {
-      direction: { P1: 'DOWN', P2: 'RIGHT' },
-      trail: { P1: [{ x: 8, y: 4 }], P2: [{ x: 6, y: 4 }] },
+      direction: { P1: 'UP', P2: 'LEFT' },
+      trail: {
+        P1: [
+          { x: 6, y: 5 },
+          { x: 7, y: 5 },
+          { x: 8, y: 5 },
+          { x: 8, y: 4 },
+        ],
+        P2: [
+          { x: 7, y: 4 },
+          { x: 6, y: 4 },
+        ],
+      },
     })
 
-    const { state: next } = resolveRound(state, 'LEFT', 'DOWN')
+    const { state: next } = play(state, 'LEFT', 'DOWN')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'DRAW', reason: 'MUTUAL' })
@@ -126,7 +131,7 @@ describe('T09 — self trail', () => {
       },
     })
 
-    const { state: next } = resolveRound(state, 'LEFT', 'RIGHT')
+    const { state: next } = play(state, 'LEFT', 'RIGHT')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'P2', reason: 'SELF_TRAIL' })
@@ -140,7 +145,7 @@ describe('T10 — head-on, single cell, defender at home', () => {
     grid[5] = '.....1R2.......'
     const state = stateFromGrid(grid, { direction: { P1: 'UP', P2: 'UP' } })
 
-    const { state: next } = resolveRound(state, 'RIGHT', 'LEFT')
+    const { state: next } = play(state, 'RIGHT', 'LEFT')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'P2', reason: 'HEAD_ON' })
@@ -166,7 +171,7 @@ describe('T11 — head-on swap, bigger territory wins', () => {
     expect(territorySize(state, 'P1')).toBe(20)
     expect(territorySize(state, 'P2')).toBe(15)
 
-    const { state: next } = resolveRound(state, 'RIGHT', 'LEFT')
+    const { state: next } = play(state, 'RIGHT', 'LEFT')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'P1', reason: 'HEAD_ON' })
@@ -188,7 +193,7 @@ describe('T12 — head-on swap, equal territory is a DRAW', () => {
     expect(territorySize(state, 'P1')).toBe(15)
     expect(territorySize(state, 'P2')).toBe(15)
 
-    const { state: next } = resolveRound(state, 'RIGHT', 'LEFT')
+    const { state: next } = play(state, 'RIGHT', 'LEFT')
 
     expect(next.status).toBe('FINISHED')
     expect(next.result).toEqual({ winner: 'DRAW', reason: 'HEAD_ON' })
@@ -217,12 +222,11 @@ describe('T20 — round limit, larger territory wins', () => {
       headCellUnder: { P1: 'P1' },
       trail: { P2: Array.from({ length: 10 }, (_, x) => ({ x, y: 0 })) },
     })
-    state.board[0][9].trail = 'P2'
 
     expect(territorySize(state, 'P1')).toBe(40)
     expect(territorySize(state, 'P2')).toBe(35)
 
-    const { state: next } = resolveRound(state, 'RIGHT', 'RIGHT')
+    const { state: next } = play(state, 'RIGHT', 'RIGHT')
 
     expect(next.round).toBe(100)
     expect(next.status).toBe('FINISHED')
@@ -239,12 +243,11 @@ describe('T21 — round limit, equal territory is a DRAW', () => {
       headCellUnder: { P1: 'P1' },
       trail: { P2: Array.from({ length: 10 }, (_, x) => ({ x, y: 0 })) },
     })
-    state.board[0][9].trail = 'P2'
 
     expect(territorySize(state, 'P1')).toBe(40)
     expect(territorySize(state, 'P2')).toBe(40)
 
-    const { state: next } = resolveRound(state, 'RIGHT', 'RIGHT')
+    const { state: next } = play(state, 'RIGHT', 'RIGHT')
 
     expect(next.round).toBe(100)
     expect(next.status).toBe('FINISHED')
@@ -269,7 +272,7 @@ describe('T22 — trail along own border captures only the trail cell', () => {
 
     expect(territorySize(state, 'P1')).toBe(3)
 
-    const { state: next, events } = resolveRound(state, 'LEFT', 'LEFT')
+    const { state: next, events } = play(state, 'LEFT', 'LEFT')
 
     expect(next.status).toBe('PLAYING')
     expect(next.players.P1.trail).toEqual([])
@@ -290,7 +293,7 @@ describe('T24 — resolveRound does not mutate its input', () => {
     const state = createInitialState()
     const snapshot = JSON.parse(JSON.stringify(state))
 
-    resolveRound(state, 'UP', 'DOWN')
+    play(state, 'UP', 'DOWN')
 
     expect(state).toEqual(snapshot)
   })

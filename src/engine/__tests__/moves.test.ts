@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialState } from '../state'
 import { getLegalMoves } from '../moves'
-import { resolveRound } from '../resolve'
-import { stateFromGrid, emptyGrid } from './testHelpers'
+import { stateFromGrid, emptyGrid, play } from './testHelpers'
 
 describe('T02 — reversal is illegal', () => {
   it('excludes the opposite of the current direction', () => {
@@ -13,7 +12,7 @@ describe('T02 — reversal is illegal', () => {
 
   it('resolveRound throws on an illegal reversal', () => {
     const state = createInitialState()
-    expect(() => resolveRound(state, 'DOWN', 'DOWN')).toThrow()
+    expect(() => play(state, 'DOWN', 'DOWN')).toThrow()
   })
 })
 

@@ -1,5 +1,54 @@
 import { BOARD_SIZE } from '../constants'
-import type { Cell, Direction, GameState, Owner, Pos } from '../types'
+import { resolveRound } from '../resolve'
+import { assertInvariants } from '../invariants'
+import type { Cell, Direction, GameEvent, GameState, Owner, Pos } from '../types'
+
+/**
+ * resolveRound + assertInvariants (раздел 13) + T18: клетка под новой головой
+ * противника никогда не входит в захват и не меняет владельца.
+ */
+export function play(
+  state: GameState,
+  moveP1: Direction,
+  moveP2: Direction
+): { state: GameState; events: GameEvent[] } {
+  const result = resolveRound(state, moveP1, moveP2)
+  assertInvariants(result.state)
+
+  for (const event of result.events) {
+    if (event.type !== 'CAPTURED') continue
+    const enemy = event.player === 'P1' ? 'P2' : 'P1'
+    const head = result.state.players[enemy].head
+    if (event.cells.some((c) => c.x === head.x && c.y === head.y)) {
+      throw new Error(`T18 violated: ${event.player} captured ${enemy}'s head cell (${head.x},${head.y})`)
+    }
+    if (result.state.board[head.y][head.x].territory !== state.board[head.y][head.x].territory) {
+      throw new Error(`T18 violated: owner of ${enemy}'s head cell changed during capture`)
+    }
+  }
+  return result
+}
+
+export function startGrid(): string[] {
+  const grid = emptyGrid()
+  grid[1] = '......RRR......'
+  grid[2] = '......R2R......'
+  grid[3] = '......RRR......'
+  grid[11] = '......BBB......'
+  grid[12] = '......B1B......'
+  grid[13] = '......BBB......'
+  return grid
+}
+
+export function territorySize(state: GameState, player: 'P1' | 'P2'): number {
+  let count = 0
+  for (const row of state.board) {
+    for (const cell of row) {
+      if (cell.territory === player) count++
+    }
+  }
+  return count
+}
 
 /**
  * Строит GameState из ASCII-сетки раздела 1 GAME_RULES.md.
@@ -73,6 +122,10 @@ export function stateFromGrid(grid: string[], options: GridOptions = {}): GameSt
   if (under.P2) board[head.P2.y][head.P2.x].territory = under.P2
 
   const trail = options.trail ?? {}
+  // Слой trail под головой в сетке не виден, поэтому размечаем его по спискам следа.
+  for (const id of ['P1', 'P2'] as const) {
+    for (const p of trail[id] ?? []) board[p.y][p.x].trail = id
+  }
   const direction = options.direction ?? {}
   const alive = options.alive ?? {}
 

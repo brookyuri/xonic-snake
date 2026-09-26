@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createInitialState } from '../engine/state'
+import { assertInvariants } from '../engine/invariants'
 import { getLegalMoves } from '../engine/moves'
 import { resolveRound } from '../engine/resolve'
 import { BOARD_SIZE } from '../engine/constants'
@@ -32,17 +33,32 @@ function territoryPercent(state: GameState, player: PlayerId): number {
 
 export function App() {
   const [state, setState] = useState<GameState>(createInitialState)
+  const stateRef = useRef(state)
 
-  const handleMove = useCallback((direction: Direction) => {
-    setState((current) => {
-      if (current.status !== 'PLAYING') return current
-      const legal = getLegalMoves(current, 'P1')
-      if (!legal.includes(direction)) return current
+  const commit = useCallback((next: GameState) => {
+    stateRef.current = next
+    setState(next)
+  }, [])
+
+  const handleMove = useCallback(
+    (direction: Direction) => {
+      const current = stateRef.current
+      if (current.status !== 'PLAYING') return
+      if (!getLegalMoves(current, 'P1').includes(direction)) return
       // Раздел 5.1: ход бота вычисляется от состояния до хода человека.
       const botMove = randomBot(current)
-      return resolveRound(current, direction, botMove).state
-    })
-  }, [])
+      const { state: next } = resolveRound(current, direction, botMove)
+      if (import.meta.env.DEV) {
+        try {
+          assertInvariants(next)
+        } catch (error) {
+          console.error(error)
+        }
+      }
+      commit(next)
+    },
+    [commit]
+  )
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -80,7 +96,7 @@ export function App() {
             result={state.result}
             bluePercent={bluePercent}
             redPercent={redPercent}
-            onPlayAgain={() => setState(createInitialState())}
+            onPlayAgain={() => commit(createInitialState())}
           />
         )}
       </div>
