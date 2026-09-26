@@ -70,6 +70,22 @@ export function distanceToTrail(state: GameState, attacker: PlayerId, victim: Pl
   return distanceFromHead(state, attacker, (x, y) => board[y][x].trail === victim)
 }
 
+/**
+ * Запас в гонке «противник к моему следу против меня домой», в ходах.
+ * ≤ 0 — противник успевает: ходы одновременные, а удар по следу раньше захвата.
+ * −Infinity, если пути домой нет; Infinity, если противнику не дойти до следа.
+ */
+export function trailRace(state: GameState, player: PlayerId): number {
+  const home = distanceHome(state, player)
+  if (home === Infinity) return -Infinity
+  return distanceToTrail(state, opponentOf(player), player) - home
+}
+
+/** Мой след под угрозой — единое определение для бота и для подсказки в UI. */
+export function isTrailInDanger(state: GameState, player: PlayerId): boolean {
+  return state.players[player].trail.length > 0 && trailRace(state, player) <= 0
+}
+
 /** Сколько клеток игрок получит, если его след замкнётся прямо сейчас (раздел 7). */
 export function potentialCapture(state: GameState, player: PlayerId): number {
   if (state.players[player].trail.length === 0) return 0

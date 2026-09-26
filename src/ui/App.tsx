@@ -4,11 +4,13 @@ import { assertInvariants } from '../engine/invariants'
 import { getLegalMoves } from '../engine/moves'
 import { resolveRound } from '../engine/resolve'
 import { BOARD_SIZE } from '../engine/constants'
-import type { Direction, GameState, PlayerId } from '../engine/types'
+import type { Direction, GameEvent, GameState, PlayerId, Pos } from '../engine/types'
 import { normalBot } from '../bot/normalBot'
+import { isTrailInDanger } from '../bot/analysis'
 import { Board, FLASH_MS, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
+import { DANGER_MESSAGE, describeRound } from './roundText'
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'UP',
@@ -36,6 +38,9 @@ export function App() {
   const stateRef = useRef(state)
   const [flash, setFlash] = useState<Flash | null>(null)
   const flashId = useRef(0)
+  const [previousHeads, setPreviousHeads] = useState<Record<PlayerId, Pos> | null>(null)
+  const [lastEvents, setLastEvents] = useState<GameEvent[]>([])
+  const [moveCount, setMoveCount] = useState(0)
 
   const commit = useCallback((next: GameState) => {
     stateRef.current = next
@@ -58,6 +63,9 @@ export function App() {
         }
       }
       commit(next)
+      setPreviousHeads({ P1: current.players.P1.head, P2: current.players.P2.head })
+      setLastEvents(events)
+      setMoveCount((n) => n + 1)
 
       const captured = new Map<number, PlayerId>()
       for (const event of events) {
@@ -96,6 +104,8 @@ export function App() {
   const legalMoves = state.status === 'PLAYING' ? getLegalMoves(state, 'P1') : []
   const bluePercent = territoryPercent(state, 'P1')
   const redPercent = territoryPercent(state, 'P2')
+  const inDanger = state.status === 'PLAYING' && isTrailInDanger(state, 'P1')
+  const eventLine = [...describeRound(lastEvents), ...(inDanger ? [DANGER_MESSAGE] : [])].join(' · ')
 
   return (
     <div className="min-h-screen bg-neutral-950 flex justify-center">
@@ -106,7 +116,21 @@ export function App() {
           <span className="text-red-300">RED {redPercent}%</span>
         </div>
 
-        <Board state={state} flash={flash} />
+        <div
+          data-testid="event-line"
+          className={`-mt-2 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
+        >
+          {eventLine}
+        </div>
+
+        <Board
+          state={state}
+          flash={flash}
+          previousHeads={previousHeads}
+          roundKey={moveCount}
+          dangerTrail={inDanger}
+          className="w-full"
+        />
 
         <div className="flex justify-center pt-2">
           <DPad legalMoves={legalMoves} onMove={handleMove} />
@@ -117,7 +141,11 @@ export function App() {
             result={state.result}
             bluePercent={bluePercent}
             redPercent={redPercent}
-            onPlayAgain={() => commit(createInitialState())}
+            onPlayAgain={() => {
+              commit(createInitialState())
+              setPreviousHeads(null)
+              setLastEvents([])
+            }}
           />
         )}
       </div>

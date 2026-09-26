@@ -7,6 +7,7 @@ import {
   movesAvoidingOwnTrail,
   opponentOf,
   potentialCapture,
+  trailRace,
 } from './analysis'
 import { pick } from './rng'
 import type { Bot } from './types'
@@ -114,9 +115,8 @@ export function evaluate(
       const decay = Math.pow(config.POTENTIAL_DECAY, Math.max(0, home - 1))
       b.potential = config.POTENTIAL * potentialCapture(state, me) * decay
     }
-    // Ничья по дистанции — противник успевает: ходы одновременные, удар раньше захвата.
-    const race = distanceToTrail(state, opp, me) - home
-    if (home === Infinity || race <= 0) b.danger = -config.DANGER
+    const race = trailRace(state, me)
+    if (race <= 0) b.danger = -config.DANGER
     else if (race === 1) b.danger = -config.DANGER_NEAR
     b.greed = -config.TRAIL_LENGTH * myTrail
   }

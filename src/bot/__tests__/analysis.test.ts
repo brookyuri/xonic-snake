@@ -4,8 +4,10 @@ import {
   distanceHome,
   distanceToTrail,
   isDeadEnd,
+  isTrailInDanger,
   movesAvoidingOwnTrail,
   potentialCapture,
+  trailRace,
 } from '../analysis'
 import { emptyGrid, mergeFragment, startGrid, stateFromGrid } from '../../engine/__tests__/testHelpers'
 import type { Pos } from '../../engine/types'
@@ -76,6 +78,30 @@ describe('distanceToTrail', () => {
     })
     // След прямо позади RED: назад нельзя → (5,4)→(4,4)→(4,5)
     expect(distanceToTrail(state, 'P2', 'P1')).toBe(3)
+  })
+})
+
+describe('isTrailInDanger / trailRace', () => {
+  it('is false at home', () => {
+    expect(isTrailInDanger(createInitialState(), 'P1')).toBe(false)
+  })
+
+  it('a tie in distance counts as danger (strike first)', () => {
+    const state = straightOutState()
+    // BLUE домой 3 хода, RED до следа (7,9) тоже 3: (5,9)→(6,9)→(7,9).
+    state.players.P2.head = p(4, 9)
+    state.players.P2.direction = 'RIGHT'
+    expect(distanceToTrail(state, 'P2', 'P1')).toBe(3)
+    expect(trailRace(state, 'P1')).toBe(0)
+    expect(isTrailInDanger(state, 'P1')).toBe(true)
+  })
+
+  it('one spare move is not danger', () => {
+    const state = straightOutState()
+    state.players.P2.head = p(3, 9)
+    state.players.P2.direction = 'RIGHT'
+    expect(trailRace(state, 'P1')).toBe(1)
+    expect(isTrailInDanger(state, 'P1')).toBe(false)
   })
 })
 
