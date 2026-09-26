@@ -1,4 +1,4 @@
-import { DIRECTION_DELTA, MAX_ROUNDS } from './constants'
+import { BOARD_SIZE, DIRECTION_DELTA, MAX_ROUNDS } from './constants'
 import { getLegalMoves } from './moves'
 import { computeCapture } from './capture'
 import type {
@@ -162,45 +162,47 @@ export function resolveRound(
     }
   }
 
-  const bothClaim = (pos: Pos) =>
-    capturedCells.P1.some((c) => samePos(c, pos)) &&
-    capturedCells.P2.some((c) => samePos(c, pos))
+  const key = (p: Pos) => p.y * BOARD_SIZE + p.x
+  const claimedBy: Record<PlayerId, Set<number>> = {
+    P1: new Set(capturedCells.P1.map(key)),
+    P2: new Set(capturedCells.P2.map(key)),
+  }
+  const bothClaim = (pos: Pos) => claimedBy.P1.has(key(pos)) && claimedBy.P2.has(key(pos))
 
   const engulfed: Record<PlayerId, boolean> = { P1: false, P2: false }
   for (const id of PLAYER_IDS) {
     if (capturedCells[id].length === 0) continue
     const enemy = OTHER[id]
+    const applied: Pos[] = []
+    let stolenFromEnemy = 0
     for (const pos of capturedCells[id]) {
-      if (bothClaim(pos)) continue
       const cell = working.board[pos.y][pos.x]
-      if (cell.trail === enemy) engulfed[enemy] = true
-      cell.territory = id
+      // Оба захватчика очищают свои следы, поэтому слой trail чистится и на пересечении.
       cell.trail = 'NONE'
+      // TODO(rules): след противника на клетке пересечения не считается поглощением —
+      // противник сам замкнул контур в этом раунде.
+      if (bothClaim(pos)) continue
+      const before = state.board[pos.y][pos.x]
+      if (before.trail === enemy) engulfed[enemy] = true
+      if (before.territory === enemy) stolenFromEnemy++
+      cell.territory = id
+      applied.push(pos)
     }
     working.players[id].trail = []
-  }
-
-  for (const id of PLAYER_IDS) {
-    if (capturedCells[id].length === 0) continue
-    const enemy = OTHER[id]
-    events.push({
-      type: 'CAPTURED',
-      player: id,
-      cells: capturedCells[id],
-      stolenFromEnemy: capturedCells[id].filter(
-        (c) => !bothClaim(c) && state.board[c.y][c.x].territory === enemy
-      ).length,
-    })
+    events.push({ type: 'CAPTURED', player: id, cells: applied, stolenFromEnemy })
   }
 
   if (engulfed.P1 || engulfed.P2) {
-    if (engulfed.P1) {
-      working.players.P1.alive = false
-      events.push({ type: 'DIED', player: 'P1', reason: 'ENGULFED' })
-    }
-    if (engulfed.P2) {
-      working.players.P2.alive = false
-      events.push({ type: 'DIED', player: 'P2', reason: 'ENGULFED' })
+    for (const id of PLAYER_IDS) {
+      if (!engulfed[id]) continue
+      // TODO(rules): остаток следа погибшего игрока снимаем целиком, иначе список
+      // player.trail разорвётся на куски и нарушит I1/I5.
+      for (const pos of working.players[id].trail) {
+        working.board[pos.y][pos.x].trail = 'NONE'
+      }
+      working.players[id].trail = []
+      working.players[id].alive = false
+      events.push({ type: 'DIED', player: id, reason: 'ENGULFED' })
     }
     if (engulfed.P1 && engulfed.P2) {
       return finish({ winner: 'DRAW', reason: 'MUTUAL' })
