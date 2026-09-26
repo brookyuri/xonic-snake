@@ -25,6 +25,8 @@ export const ABANDONED = 'ABANDONED'
 
 /** Одна партия для метрик плейтеста (PRD, раздел 28). winner: P1 — человек, P2 — бот. */
 export interface GameRecord {
+  /** Уникальный id записи — чтобы снять брошенную партию, если вкладка вернулась из bfcache. */
+  id: string
   startedAt: string
   rounds: number
   /** null — партия брошена. */
@@ -61,12 +63,22 @@ export function loadGames(): GameRecord[] {
   return Array.isArray(raw) ? (raw as GameRecord[]) : []
 }
 
-function appendGame(record: Omit<GameRecord, 'rematch'>): void {
-  const games = [...loadGames(), { ...record, rematch: false }].slice(-MAX_GAMES)
-  writeJSON(GAMES_KEY, games)
+function newId(): string {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  }
 }
 
-type FinishedRecord = Omit<GameRecord, 'rematch' | 'winner' | 'reason'> & {
+function appendGame(record: Omit<GameRecord, 'rematch' | 'id'>): string {
+  const id = newId()
+  const games = [...loadGames(), { ...record, id, rematch: false }].slice(-MAX_GAMES)
+  writeJSON(GAMES_KEY, games)
+  return id
+}
+
+type FinishedRecord = Omit<GameRecord, 'rematch' | 'winner' | 'reason' | 'id'> & {
   winner: PlayerId | 'DRAW'
   reason: Reason
 }
@@ -82,12 +94,26 @@ export function recordGame(record: FinishedRecord, humanPercent: number): void {
   appendGame(record)
 }
 
-/** Брошенная партия: в ts_games с reason ABANDONED, в сводке — только счётчик abandoned. */
-export function recordAbandoned(record: Omit<GameRecord, 'rematch' | 'winner' | 'reason'>): void {
+/**
+ * Брошенная партия: в ts_games с reason ABANDONED, в сводке — только счётчик abandoned.
+ * Возвращает id записи.
+ */
+export function recordAbandoned(record: Omit<GameRecord, 'rematch' | 'winner' | 'reason' | 'id'>): string {
   const stats = loadStats()
   stats.abandoned++
   writeJSON(STATS_KEY, stats)
-  appendGame({ ...record, winner: null, reason: ABANDONED })
+  return appendGame({ ...record, winner: null, reason: ABANDONED })
+}
+
+/** Снять запись брошенной партии (вкладка вернулась из bfcache — партия продолжается). */
+export function unrecordAbandoned(id: string): void {
+  const games = loadGames()
+  const kept = games.filter((g) => !(g.id === id && g.reason === ABANDONED))
+  if (kept.length === games.length) return
+  writeJSON(GAMES_KEY, kept)
+  const stats = loadStats()
+  stats.abandoned = Math.max(0, stats.abandoned - 1)
+  writeJSON(STATS_KEY, stats)
 }
 
 export function markLastGameRematch(): void {

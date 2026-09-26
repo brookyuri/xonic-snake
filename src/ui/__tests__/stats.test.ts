@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   exportStats,
   recordAbandoned,
+  unrecordAbandoned,
   formatStatsLine,
   loadGames,
   loadStats,
@@ -114,5 +115,30 @@ describe('stats', () => {
       redCells: 14,
       rematch: false,
     })
+  })
+
+  it('an abandoned game can be taken back (tab restored from bfcache)', () => {
+    vi.stubGlobal('localStorage', memoryStorage())
+    recordGame(game('P1'), 12)
+    const { winner: _w, reason: _r, ...partial } = game('P2')
+    const id = recordAbandoned({ ...partial, rounds: 9 })
+    expect(loadStats().abandoned).toBe(1)
+    unrecordAbandoned(id)
+    expect(loadStats()).toMatchObject({ gamesPlayed: 1, abandoned: 0 })
+    expect(loadGames().map((g) => g.reason)).toEqual(['TRAIL_CUT'])
+    // Повторный или чужой id ничего не ломает.
+    unrecordAbandoned(id)
+    unrecordAbandoned(loadGames()[0].id)
+    expect(loadStats().abandoned).toBe(0)
+    expect(loadGames()).toHaveLength(1)
+  })
+
+  it('every record gets a unique id', () => {
+    vi.stubGlobal('localStorage', memoryStorage())
+    recordGame(game('P1'), 1)
+    recordGame(game('P2'), 1)
+    const [a, b] = loadGames()
+    expect(a.id).toBeTruthy()
+    expect(a.id).not.toBe(b.id)
   })
 })

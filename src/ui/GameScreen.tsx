@@ -16,7 +16,7 @@ import { describeEnd } from './endText'
 import { HeldFlag, MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { describeRound, eventLines } from './roundText'
 import type { Settings } from './settings'
-import { markLastGameRematch, recordAbandoned, recordGame } from './stats'
+import { markLastGameRematch, recordAbandoned, recordGame, unrecordAbandoned } from './stats'
 import { swipeDirection } from './swipe'
 import { createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
 
@@ -104,11 +104,11 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
    * Брошенная партия (RESTART / MENU с паузы, уход со страницы): пишется в ts_games
    * с reason ABANDONED. Отсчёт до первого тика и уже записанные партии не пишутся.
    */
-  const abandon = useCallback(() => {
+  const abandon = useCallback((): string | null => {
     const { ticks: played, state: current, phase: now } = controller.snapshot
-    if (played === 0 || now === 'FINISHED' || match.current.recorded) return
+    if (played === 0 || now === 'FINISHED' || match.current.recorded) return null
     match.current.recorded = true
-    recordAbandoned({
+    return recordAbandoned({
       startedAt: match.current.startedAt,
       rounds: played,
       blueCells: territoryCells(current, 'P1'),
@@ -119,11 +119,35 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
     })
   }, [controller, settings])
 
-  // Закрытие вкладки или уход со страницы во время матча.
+  // Закрытие вкладки или уход со страницы во время матча. Если страница уходит в
+  // bfcache (persisted), она может вернуться: запоминаем id записи, чтобы снять её.
+  const bfcacheRecord = useRef<string | null>(null)
   useEffect(() => {
-    window.addEventListener('pagehide', abandon)
-    return () => window.removeEventListener('pagehide', abandon)
-  }, [abandon])
+    const onPageHide = (event: PageTransitionEvent) => {
+      const id = abandon()
+      if (event.persisted) {
+        bfcacheRecord.current = id
+        controller.pause()
+      }
+    }
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      // Вкладка вернулась: партия не брошена — снимаем запись и оставляем матч на паузе
+      // (RESUME запустит отсчёт 3-2-1).
+      if (bfcacheRecord.current) {
+        unrecordAbandoned(bfcacheRecord.current)
+        bfcacheRecord.current = null
+        match.current.recorded = false
+      }
+      controller.pause()
+    }
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [abandon, controller])
 
   // Автопауза при сворачивании вкладки (5.1.2).
   useEffect(() => {
