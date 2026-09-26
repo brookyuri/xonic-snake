@@ -275,6 +275,7 @@ describe('T22 — trail along own border captures only the trail cell', () => {
     expect(next.players.P1.trail).toEqual([])
     expect(territorySize(next, 'P1')).toBe(4)
     expect(next.board[11][7].territory).toBe('P1')
+    expect(next.board[11][7].trail).toBe('NONE')
     expect(events).toContainEqual({
       type: 'CAPTURED',
       player: 'P1',

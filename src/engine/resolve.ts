@@ -175,6 +175,7 @@ export function resolveRound(
       const cell = working.board[pos.y][pos.x]
       if (cell.trail === enemy) engulfed[enemy] = true
       cell.territory = id
+      cell.trail = 'NONE'
     }
     working.players[id].trail = []
   }
