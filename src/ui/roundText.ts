@@ -21,3 +21,12 @@ export function describeRound(events: GameEvent[]): string[] {
   }
   return lines
 }
+
+/**
+ * Строки под HUD: не больше одного события плюс угроза. Угроза важнее и идёт первой,
+ * каждая строка — целиком, без многоточия.
+ */
+export function eventLines(events: readonly string[], inDanger: boolean): string[] {
+  const event = events.slice(-1)
+  return inDanger ? [DANGER_MESSAGE, ...event] : event
+}

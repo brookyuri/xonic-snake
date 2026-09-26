@@ -13,8 +13,8 @@ import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
 import { describeEnd } from './endText'
-import { HeldFlag, MessageFeed } from './messageFeed'
-import { DANGER_MESSAGE, describeRound } from './roundText'
+import { HeldFlag, MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
+import { describeRound, eventLines } from './roundText'
 import type { Settings } from './settings'
 import { markLastGameRematch, recordAbandoned, recordGame } from './stats'
 import { swipeDirection } from './swipe'
@@ -84,7 +84,8 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
 
   const [flash, setFlash] = useState<Flash | null>(null)
   const flashId = useRef(0)
-  const feed = useRef(new MessageFeed())
+  // Одно событие за раз: вместе с угрозой строка событий — максимум две строки.
+  const feed = useRef(new MessageFeed(MESSAGE_HOLD_MS, 1))
   const danger = useRef(new HeldFlag())
   const match = useRef({ startedAt: new Date().toISOString(), captures: 0, recorded: false })
   // Лениво: иначе рекордер (и window.__tsPerf) пересоздавался бы на каждом рендере.
@@ -224,7 +225,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   const now = performance.now()
   const rawDanger = useMemo(() => state.status === 'PLAYING' && isTrailInDanger(state, 'P1'), [state])
   const inDanger = danger.current.update(running && rawDanger, now)
-  const messages = [...feed.current.visible(now), ...(inDanger ? [DANGER_MESSAGE] : [])]
+  const lines = eventLines(feed.current.visible(now), inDanger)
 
   const end = phase === 'FINISHED' ? describeEnd(state, events) : null
   const bluePercent = territoryPercent(state, 'P1')
@@ -268,9 +269,14 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
           <div
             data-testid="event-line"
             aria-live="polite"
-            className={`mt-0.5 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
+            // Высота всегда под две строки — поле не прыгает, когда появляется угроза.
+            className="event-line flex h-10 flex-col items-center justify-center text-center leading-5"
           >
-            {messages.join(' · ')}
+            {lines.map((line) => (
+              <span key={line} className={line === lines[0] && inDanger ? 'text-amber-300' : 'text-neutral-300'}>
+                {line}
+              </span>
+            ))}
           </div>
         </header>
 

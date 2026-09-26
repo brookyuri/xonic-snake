@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { describeRound } from '../roundText'
+import { describeRound, eventLines } from '../roundText'
 import type { GameEvent } from '../../engine/types'
 
 const cells = (n: number) => Array.from({ length: n }, (_, x) => ({ x, y: 0 }))
@@ -29,5 +29,17 @@ describe('describeRound', () => {
     expect(describeRound([{ type: 'CAPTURED', player: 'P2', cells: cells(1), stolenFromEnemy: 1 }])).toEqual([
       'RED captured 1 cell (1 from you)',
     ])
+  })
+})
+
+describe('eventLines', () => {
+  it('shows at most one event', () => {
+    expect(eventLines(['RED left home', 'RED captured 6 cells'], false)).toEqual(['RED captured 6 cells'])
+  })
+
+  it('puts the danger warning first, then one event', () => {
+    expect(eventLines(['RED left home'], true)).toEqual(['Your trail is in danger', 'RED left home'])
+    expect(eventLines([], true)).toEqual(['Your trail is in danger'])
+    expect(eventLines([], false)).toEqual([])
   })
 })

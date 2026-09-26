@@ -37,6 +37,11 @@ body {
   width: min(100cqw, 100cqh);
 }
 
+/* Строка событий: 14px, на узких экранах до 12px — текст не обрезается. */
+.event-line {
+  font-size: clamp(12px, 3.7vw, 14px);
+}
+
 /* След человека под угрозой. */
 .trail-danger {
   animation: trail-danger 0.7s ease-in-out infinite;
