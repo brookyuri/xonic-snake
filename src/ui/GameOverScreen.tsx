@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { copyText } from './clipboard'
+
 interface Props {
   title: string
   reason: string
@@ -5,13 +8,16 @@ interface Props {
   redPercent: number
   onPlayAgain: () => void
   onMenu?: () => void
+  /** Только в режиме ?perf: JSON с замерами для кнопки "Copy perf". */
+  perfJson?: () => string
 }
 
 /**
  * Полупрозрачный оверлей: поле с подсвеченной клеткой столкновения остаётся видно,
  * итог — в нижней части экрана, где был D-pad.
  */
-export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayAgain, onMenu }: Props) {
+export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayAgain, onMenu, perfJson }: Props) {
+  const [perfCopy, setPerfCopy] = useState<'idle' | 'copied' | 'failed'>('idle')
   return (
     <div className="absolute inset-0 flex flex-col justify-end bg-black/40" data-testid="game-over">
       <div className="mx-4 mb-4 flex flex-col items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950/95 px-4 py-5 text-neutral-100">
@@ -39,6 +45,16 @@ export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayA
             </button>
           )}
         </div>
+        {perfJson && (
+          <button
+            type="button"
+            data-testid="copy-perf"
+            onClick={async () => setPerfCopy((await copyText(perfJson())) ? 'copied' : 'failed')}
+            className="min-h-10 px-3 text-xs text-neutral-400 underline underline-offset-2"
+          >
+            {perfCopy === 'copied' ? 'Copied' : perfCopy === 'failed' ? 'Copy failed' : 'Copy perf'}
+          </button>
+        )}
       </div>
     </div>
   )

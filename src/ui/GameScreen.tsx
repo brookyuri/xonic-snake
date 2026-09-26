@@ -18,7 +18,7 @@ import { DANGER_MESSAGE, describeRound } from './roundText'
 import type { Settings } from './settings'
 import { markLastGameRematch, recordAbandoned, recordGame } from './stats'
 import { swipeDirection } from './swipe'
-import { perfEnabled, recordTick } from './perf'
+import { createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'UP',
@@ -87,6 +87,8 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   const feed = useRef(new MessageFeed())
   const danger = useRef(new HeldFlag())
   const match = useRef({ startedAt: new Date().toISOString(), captures: 0, recorded: false })
+  // Лениво: иначе рекордер (и window.__tsPerf) пересоздавался бы на каждом рендере.
+  const [perfSamples] = useState(() => (perfEnabled ? createPerfRecorder() : null))
 
   // Цикл кадров: контроллер сам решает, пора ли тикать.
   useEffect(() => {
@@ -158,8 +160,8 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
 
   // ?perf: сколько прошло от начала тика до коммита DOM.
   useLayoutEffect(() => {
-    if (!perfEnabled || ticks === 0) return
-    recordTick({
+    if (!perfSamples || ticks === 0) return
+    perfSamples.push({
       tick: ticks,
       at: snap.lastTickAt,
       costMs: snap.lastTickCostMs,
@@ -238,6 +240,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   return (
     <div className="screen">
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
+        {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} />}
         <header className="pt-3">
           <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
             <span className="w-20 text-cyan-300">BLUE {bluePercent}%</span>
@@ -333,9 +336,26 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
             redPercent={redPercent}
             onPlayAgain={() => onRestart(true)}
             onMenu={onMenu}
+            perfJson={
+              perfSamples
+                ? () => perfReport(summarizePerf(perfSamples, tickMs), settings)
+                : undefined
+            }
           />
         )}
       </div>
+    </div>
+  )
+}
+
+/** ?perf: маленькая полупрозрачная панель поверх HUD. */
+function PerfPanel({ summary }: { summary: ReturnType<typeof summarizePerf> }) {
+  return (
+    <div
+      data-testid="perf-panel"
+      className="pointer-events-none absolute left-2 top-1 z-10 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] leading-tight text-lime-300"
+    >
+      tick {summary.avgInterval}ms · late {summary.lateTicksPct}% · p95 {summary.p95Work}ms · n {summary.ticks}
     </div>
   )
 }
