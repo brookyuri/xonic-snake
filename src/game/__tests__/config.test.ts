@@ -21,6 +21,13 @@ describe('speed and match length (5.3)', () => {
     expect(timeLeftMs(state, 400)).toBe(4_000)
   })
 
+  it('never shows more than the match length (Normal: 429 × 280 = 120 120 ms)', () => {
+    const state = createInitialState({ maxRounds: maxRoundsFor(SPEEDS.normal) })
+    expect(formatClock(timeLeftMs(state, SPEEDS.normal))).toBe('2:00')
+    state.round = 1
+    expect(timeLeftMs(state, SPEEDS.normal)).toBe(428 * 280)
+  })
+
   it('formats m:ss with seconds rounded up', () => {
     expect(formatClock(120_000)).toBe('2:00')
     expect(formatClock(107_000)).toBe('1:47')

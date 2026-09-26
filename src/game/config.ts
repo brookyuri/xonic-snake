@@ -15,9 +15,12 @@ export function maxRoundsFor(tickMs: number): number {
   return Math.ceil(MATCH_MS / tickMs)
 }
 
-/** Оставшееся время матча: (maxRounds − round) × tickMs. */
+/**
+ * Оставшееся время матча: (maxRounds − round) × tickMs, но не больше MATCH_MS —
+ * из-за ceil в maxRounds (429 × 280 = 120 120 мс) на старте иначе было бы «2:01».
+ */
 export function timeLeftMs(state: GameState, tickMs: number): number {
-  return Math.max(0, (state.maxRounds - state.round) * tickMs)
+  return Math.min(MATCH_MS, Math.max(0, (state.maxRounds - state.round) * tickMs))
 }
 
 /** 107 000 мс → "1:47". Секунды округляются вверх: 0:00 только в самом конце. */

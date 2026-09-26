@@ -1,8 +1,11 @@
+import { OPPOSITE_DIRECTION } from '../engine/constants'
 import type { Direction } from '../engine/types'
 
 interface Props {
-  legalMoves: Direction[]
-  onMove: (direction: Direction) => void
+  /** Последнее направление, которое получит змейка (хвост очереди или текущее). */
+  heading: Direction
+  onSteer: (direction: Direction) => void
+  disabled?: boolean
 }
 
 const BUTTONS: { dir: Direction; label: string; area: string }[] = [
@@ -12,8 +15,13 @@ const BUTTONS: { dir: Direction; label: string; area: string }[] = [
   { dir: 'DOWN', label: '↓', area: 'down' },
 ]
 
-export function DPad({ legalMoves, onMove }: Props) {
+/**
+ * D-pad меняет направление, а не делает ход. Неактивен только разворот
+ * относительно последнего направления в очереди.
+ */
+export function DPad({ heading, onSteer, disabled = false }: Props) {
   return (
+    // Кнопки стоят крестом, соседние — по диагонали: при gap 6px между ними ≈ 8.5px.
     <div
       className="grid gap-1.5"
       style={{
@@ -26,11 +34,16 @@ export function DPad({ legalMoves, onMove }: Props) {
         <button
           key={dir}
           type="button"
-          aria-label={dir}
-          disabled={!legalMoves.includes(dir)}
-          onClick={() => onMove(dir)}
+          aria-label={`Steer ${dir.toLowerCase()}`}
+          data-dir={dir}
+          disabled={disabled || dir === OPPOSITE_DIRECTION[heading]}
+          // pointerdown, а не click: поворот засчитывается в момент касания.
+          onPointerDown={(event) => {
+            event.preventDefault()
+            onSteer(dir)
+          }}
           style={{ gridArea: area }}
-          className="h-16 w-16 rounded-xl bg-neutral-800 text-neutral-100 text-2xl flex items-center justify-center select-none active:bg-neutral-700 disabled:opacity-25 disabled:cursor-not-allowed"
+          className="flex h-16 w-16 items-center justify-center rounded-xl bg-neutral-800 text-2xl text-neutral-100 transition-transform duration-100 active:scale-95 active:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {label}
         </button>

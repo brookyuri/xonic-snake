@@ -37,22 +37,6 @@ body {
   width: min(100cqw, 100cqh);
 }
 
-/* Клетка, где голова стояла в прошлом раунде: вспыхивает и гаснет. */
-.previous-cell {
-  opacity: 0;
-  animation-name: previous-cell-fade;
-  animation-timing-function: ease-out;
-}
-
-@keyframes previous-cell-fade {
-  from {
-    opacity: 0.7;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
 /* След человека под угрозой. */
 .trail-danger {
   animation: trail-danger 0.7s ease-in-out infinite;
@@ -83,5 +67,68 @@ body {
   }
   50% {
     opacity: 0.45;
+  }
+}
+
+/* Отсчёт 3-2-1: одна крупная цифра поверх поля, каждая заново «выпрыгивает». */
+.countdown-number {
+  font-size: min(38cqw, 9rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #f5f5f5;
+  text-shadow:
+    0 0 24px rgba(34, 211, 238, 0.55),
+    0 0 4px rgba(0, 0, 0, 0.8);
+  font-variant-numeric: tabular-nums;
+  animation: countdown-pop 0.9s ease-out both;
+}
+
+@keyframes countdown-pop {
+  from {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+}
+
+/* Последние 10 секунд матча. */
+.timer-final {
+  font-weight: 800;
+  animation: timer-final 1s ease-in-out infinite;
+}
+
+@keyframes timer-final {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Видимый фокус для клавиатуры. */
+button:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 2px;
+}
+
+/* Меньше движения: без пульсаций и «прыжков», головы переставляются без плавного хода. */
+@media (prefers-reduced-motion: reduce) {
+  .trail-danger,
+  .collision-cell,
+  .timer-final,
+  .countdown-number {
+    animation: none;
+  }
+  .trail-danger {
+    outline: 2px solid #fbbf24;
+    outline-offset: -2px;
+  }
+  [data-head] {
+    transition: none !important;
   }
 }

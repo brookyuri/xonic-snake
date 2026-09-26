@@ -1,11 +1,9 @@
-import type { CSSProperties } from 'react'
-import type { Direction, GameState, PlayerId, Pos } from '../engine/types'
+import { memo, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
+import type { Direction, GameState, Owner, PlayerId, Pos } from '../engine/types'
 
 export const FLASH_MS = 300
-export const HEAD_MOVE_MS = 150
-export const PREVIOUS_CELL_MS = 400
 
-/** Клетки, захваченные в последнем раунде (ключ y*size+x → захватчик). */
+/** Клетки, захваченные в последнем тике (ключ y*size+x → захватчик). */
 export interface Flash {
   cells: Map<number, PlayerId>
   lit: boolean
@@ -29,15 +27,18 @@ const PLAYERS: PlayerId[] = ['P1', 'P2']
 interface Props {
   state: GameState
   flash?: Flash | null
-  /** Где стояли головы до последнего раунда — эта клетка коротко подсвечивается. */
-  previousHeads?: Record<PlayerId, Pos> | null
-  /** Меняется каждый раунд, чтобы перезапустить анимацию прошлой клетки. */
-  roundKey?: number
+  /** Длительность перехода головы между клетками; 0 — без анимации (схемы в правилах). */
+  moveMs?: number
   /** Пульсация следа человека, когда он под угрозой. */
   dangerTrail?: boolean
   /** Клетки столкновения на экране конца игры. */
   highlight?: Pos[]
   className?: string
+  style?: CSSProperties
+  onPointerDown?: PointerEventHandler<HTMLDivElement>
+  onPointerMove?: PointerEventHandler<HTMLDivElement>
+  onPointerUp?: PointerEventHandler<HTMLDivElement>
+  children?: ReactNode
 }
 
 /** Положение элемента размером в одну клетку поверх сетки size×size. */
@@ -49,48 +50,74 @@ function cellBox(pos: Pos, size: number): CSSProperties {
   }
 }
 
+interface CellProps {
+  territory: Owner
+  trail: Owner
+  flash: 'NONE' | 'LIT_P1' | 'LIT_P2' | 'FADING'
+  pulsing: boolean
+}
+
+/**
+ * Клетка перерисовывается только когда меняется её содержимое: за тик обычно
+ * меняются 2–4 клетки из 225, остальные React пропускает.
+ */
+const Cell = memo(function Cell({ territory, trail, flash, pulsing }: CellProps) {
+  let background = COLOR.empty
+  if (trail === 'P1') background = COLOR.p1Trail
+  else if (trail === 'P2') background = COLOR.p2Trail
+  else if (territory === 'P1') background = COLOR.p1Territory
+  else if (territory === 'P2') background = COLOR.p2Territory
+  if (flash === 'LIT_P1') background = COLOR.p1Flash
+  if (flash === 'LIT_P2') background = COLOR.p2Flash
+  const transition = flash === 'FADING' ? `background-color ${FLASH_MS}ms ease-out` : undefined
+  return <div className={pulsing ? 'trail-danger' : undefined} style={{ backgroundColor: background, transition }} />
+})
+
 export function Board({
   state,
   flash,
-  previousHeads,
-  roundKey = 0,
+  moveMs = 0,
   dangerTrail = false,
   highlight = [],
   className = '',
+  style,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  children,
 }: Props) {
   const size = state.board.length
 
   return (
-    <div className={`relative aspect-square overflow-hidden rounded-lg border border-neutral-800 ${className}`}>
+    <div
+      className={`relative aspect-square overflow-hidden rounded-lg border border-neutral-800 ${className}`}
+      style={style}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
       <div
         className="grid h-full w-full"
-        style={{
-          gridTemplateColumns: `repeat(${size}, 1fr)`,
-          gridTemplateRows: `repeat(${size}, 1fr)`,
-        }}
+        style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, gridTemplateRows: `repeat(${size}, 1fr)` }}
       >
         {state.board.map((row, y) =>
           row.map((cell, x) => {
-            let background = COLOR.empty
-            if (cell.trail === 'P1') background = COLOR.p1Trail
-            else if (cell.trail === 'P2') background = COLOR.p2Trail
-            else if (cell.territory === 'P1') background = COLOR.p1Territory
-            else if (cell.territory === 'P2') background = COLOR.p2Territory
-
             const capturer = flash?.cells.get(y * size + x)
-            let transition: string | undefined
-            if (capturer && flash?.lit) {
-              background = capturer === 'P1' ? COLOR.p1Flash : COLOR.p2Flash
-            } else if (capturer) {
-              transition = `background-color ${FLASH_MS}ms ease-out`
-            }
-            const pulsing = dangerTrail && cell.trail === 'P1'
-
+            const flashState: CellProps['flash'] = !capturer
+              ? 'NONE'
+              : flash!.lit
+                ? capturer === 'P1'
+                  ? 'LIT_P1'
+                  : 'LIT_P2'
+                : 'FADING'
             return (
-              <div
-                key={`${x}-${y}`}
-                className={pulsing ? 'trail-danger' : undefined}
-                style={{ backgroundColor: background, transition }}
+              <Cell
+                key={y * size + x}
+                territory={cell.territory}
+                trail={cell.trail}
+                flash={flashState}
+                pulsing={dangerTrail && cell.trail === 'P1'}
               />
             )
           })
@@ -98,19 +125,6 @@ export function Board({
       </div>
 
       <div className="pointer-events-none absolute inset-0">
-        {previousHeads &&
-          PLAYERS.map((id) => (
-            <div
-              key={`prev-${id}-${roundKey}`}
-              className="previous-cell absolute left-0 top-0"
-              style={{
-                ...cellBox(previousHeads[id], size),
-                backgroundColor: id === 'P1' ? COLOR.p1Head : COLOR.p2Head,
-                animationDuration: `${PREVIOUS_CELL_MS}ms`,
-              }}
-            />
-          ))}
-
         {PLAYERS.map((id) => {
           const player = state.players[id]
           const color = id === 'P1' ? COLOR.p1Head : COLOR.p2Head
@@ -121,7 +135,8 @@ export function Board({
               className="absolute left-0 top-0 flex items-center justify-center"
               style={{
                 ...cellBox(player.head, size),
-                transition: `transform ${HEAD_MOVE_MS}ms ease-out`,
+                // Линейно на весь тик: голова едет непрерывно, а не прыгает.
+                transition: moveMs > 0 ? `transform ${moveMs}ms linear` : undefined,
               }}
             >
               <div
@@ -150,6 +165,7 @@ export function Board({
           />
         ))}
       </div>
+      {children}
     </div>
   )
 }

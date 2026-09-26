@@ -3,6 +3,7 @@ import { GameScreen } from './GameScreen'
 import { HowToScreen } from './HowToScreen'
 import { MenuScreen } from './MenuScreen'
 import { readJSON, writeJSON } from './storage'
+import { loadSettings, saveSettings, type Settings } from './settings'
 
 const SEEN_RULES_KEY = 'ts_seen_rules'
 
@@ -14,6 +15,11 @@ export function App() {
     readJSON(SEEN_RULES_KEY, false) ? 'menu' : 'howto'
   )
   const [firstVisit, setFirstVisit] = useState(() => !readJSON(SEEN_RULES_KEY, false))
+  const [settings, setSettings] = useState<Settings>(loadSettings)
+  const changeSettings = (next: Settings) => {
+    setSettings(next)
+    saveSettings(next)
+  }
 
   if (screen === 'howto') {
     return (
@@ -27,6 +33,13 @@ export function App() {
       />
     )
   }
-  if (screen === 'game') return <GameScreen onMenu={() => setScreen('menu')} />
-  return <MenuScreen onPlay={() => setScreen('game')} onHowTo={() => setScreen('howto')} />
+  if (screen === 'game') return <GameScreen settings={settings} onMenu={() => setScreen('menu')} />
+  return (
+    <MenuScreen
+      settings={settings}
+      onSettingsChange={changeSettings}
+      onPlay={() => setScreen('game')}
+      onHowTo={() => setScreen('howto')}
+    />
+  )
 }

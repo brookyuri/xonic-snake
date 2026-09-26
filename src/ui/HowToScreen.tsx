@@ -19,8 +19,8 @@ const STEPS = [
     state: diagram(['.....', '.bbb.', '.b1b.', '.b...', '.B...'], { P1: 'LEFT', P2: 'DOWN' }),
   },
   {
-    text: 'Both snakes move at the same time: each tap plays one round for both.',
-    state: diagram(['..2..', '.....', '.....', '..1..', '.BBB.'], { P1: 'UP', P2: 'DOWN' }),
+    text: 'Your snake moves by itself — just steer.',
+    state: diagram(['.....', '.bb1.', '.b...', '.B...', '.B...'], { P1: 'RIGHT', P2: 'DOWN' }),
   },
 ]
 
@@ -40,8 +40,10 @@ export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLab
             </li>
           ))}
         </ol>
-        <p className="mt-3 text-center text-sm text-neutral-500">
-          You are BLUE. Most territory after 100 rounds wins.
+        <p className="mt-3 text-center text-sm leading-snug text-neutral-400">
+          Swipe on the board, tap the arrows or use arrow keys / WASD.
+          <br />
+          You are BLUE. Most territory after 2 minutes wins.
         </p>
         <button
           type="button"

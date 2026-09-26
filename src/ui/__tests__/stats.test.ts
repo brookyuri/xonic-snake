@@ -27,6 +27,8 @@ const game = (winner: 'P1' | 'P2' | 'DRAW') => ({
   blueCells: 20,
   redCells: 15,
   captures: 3,
+  difficulty: 'easy' as const,
+  speed: 'normal' as const,
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -87,7 +89,13 @@ describe('stats', () => {
     recordGame(game('P1'), 12)
     const exported = JSON.parse(exportStats())
     expect(exported.stats.gamesPlayed).toBe(1)
-    expect(exported.games[0]).toMatchObject({ winner: 'P1', reason: 'TRAIL_CUT', rematch: false })
+    expect(exported.games[0]).toMatchObject({
+      winner: 'P1',
+      reason: 'TRAIL_CUT',
+      rematch: false,
+      difficulty: 'easy',
+      speed: 'normal',
+    })
     expect(typeof exported.exportedAt).toBe('string')
   })
 })

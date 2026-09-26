@@ -1,5 +1,7 @@
 import type { PlayerId, Reason } from '../engine/types'
 import { readJSON, writeJSON } from './storage'
+import type { Speed } from '../game/config'
+import type { Difficulty } from './settings'
 
 export const STATS_KEY = 'ts_stats'
 export const GAMES_KEY = 'ts_games'
@@ -26,6 +28,8 @@ export interface GameRecord {
   captures: number
   /** Нажал PLAY AGAIN сразу после этой партии. */
   rematch: boolean
+  difficulty: Difficulty
+  speed: Speed
 }
 
 const EMPTY_STATS: PlayerStats = { gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTerritory: 0 }

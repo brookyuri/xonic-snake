@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createInitialState } from '../engine/state'
-import { assertInvariants } from '../engine/invariants'
-import { getLegalMoves } from '../engine/moves'
-import { resolveRound } from '../engine/resolve'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { BOARD_SIZE } from '../engine/constants'
-import type { Direction, GameEvent, GameState, PlayerId, Pos } from '../engine/types'
-import { normalBot } from '../bot/normalBot'
+import { assertInvariants } from '../engine/invariants'
+import type { Direction, GameState, PlayerId } from '../engine/types'
 import { isTrailInDanger } from '../bot/analysis'
+import { easyBot } from '../bot/easyBot'
+import { normalBot } from '../bot/normalBot'
+import { FINAL_SECONDS, formatClock, maxRoundsFor, SPEEDS, timeLeftMs } from '../game/config'
+import { lastQueuedDirection } from '../game/input'
+import { MatchController } from '../game/match'
 import { Board, FLASH_MS, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
-import { DANGER_MESSAGE, describeRound } from './roundText'
+import { PauseScreen } from './PauseScreen'
 import { describeEnd } from './endText'
+import { HeldFlag, MessageFeed } from './messageFeed'
+import { DANGER_MESSAGE, describeRound } from './roundText'
+import type { Settings } from './settings'
 import { markLastGameRematch, recordGame } from './stats'
+import { swipeDirection } from './swipe'
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: 'UP',
@@ -23,15 +28,15 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
   s: 'DOWN',
   a: 'LEFT',
   d: 'RIGHT',
+  W: 'UP',
+  S: 'DOWN',
+  A: 'LEFT',
+  D: 'RIGHT',
 }
 
 function territoryCells(state: GameState, player: PlayerId): number {
   let count = 0
-  for (const row of state.board) {
-    for (const cell of row) {
-      if (cell.territory === player) count++
-    }
-  }
+  for (const row of state.board) for (const cell of row) if (cell.territory === player) count++
   return count
 }
 
@@ -39,131 +44,225 @@ function territoryPercent(state: GameState, player: PlayerId): number {
   return Math.round((territoryCells(state, player) / (BOARD_SIZE * BOARD_SIZE)) * 100)
 }
 
-export function GameScreen({ onMenu }: { onMenu: () => void }) {
-  const [state, setState] = useState<GameState>(createInitialState)
-  const stateRef = useRef(state)
+interface Props {
+  settings: Settings
+  onMenu: () => void
+}
+
+/** Экран игры. Каждый матч — отдельный Match с новым key: рестарт сбрасывает всё. */
+export function GameScreen({ settings, onMenu }: Props) {
+  const [matchId, setMatchId] = useState(0)
+  const restart = useCallback((afterFinishedGame: boolean) => {
+    if (afterFinishedGame) markLastGameRematch()
+    setMatchId((id) => id + 1)
+  }, [])
+  return <Match key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} />
+}
+
+interface MatchProps extends Props {
+  onRestart: (afterFinishedGame: boolean) => void
+}
+
+function Match({ settings, onMenu, onRestart }: MatchProps) {
+  const tickMs = SPEEDS[settings.speed]
+  const [controller] = useState(
+    () =>
+      new MatchController({
+        tickMs,
+        maxRounds: maxRoundsFor(tickMs),
+        bot: settings.difficulty === 'easy' ? easyBot : normalBot,
+        strict: import.meta.env.DEV,
+      })
+  )
+  const subscribe = useCallback((listener: () => void) => controller.subscribe(listener), [controller])
+  const snap = useSyncExternalStore(subscribe, () => controller.snapshot)
+  const { state, phase, events, ticks } = snap
+
   const [flash, setFlash] = useState<Flash | null>(null)
   const flashId = useRef(0)
-  const [previousHeads, setPreviousHeads] = useState<Record<PlayerId, Pos> | null>(null)
-  const [lastEvents, setLastEvents] = useState<GameEvent[]>([])
-  const [moveCount, setMoveCount] = useState(0)
-  // Метрики текущей партии для ts_games.
-  const game = useRef({ startedAt: new Date().toISOString(), rounds: 0, captures: 0 })
+  const feed = useRef(new MessageFeed())
+  const danger = useRef(new HeldFlag())
+  const match = useRef({ startedAt: new Date().toISOString(), captures: 0, recorded: false })
 
-  const commit = useCallback((next: GameState) => {
-    stateRef.current = next
-    setState(next)
-  }, [])
+  // Цикл кадров: контроллер сам решает, пора ли тикать.
+  useEffect(() => {
+    let frame = requestAnimationFrame(function loop() {
+      controller.frame()
+      frame = requestAnimationFrame(loop)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [controller])
 
-  const handleMove = useCallback(
-    (direction: Direction) => {
-      const current = stateRef.current
-      if (current.status !== 'PLAYING') return
-      if (!getLegalMoves(current, 'P1').includes(direction)) return
-      // Раздел 5.1: ход бота вычисляется от состояния до хода человека.
-      const botMove = normalBot(current, 'P2')
-      const { state: next, events } = resolveRound(current, direction, botMove)
-      if (import.meta.env.DEV) {
-        try {
-          assertInvariants(next)
-        } catch (error) {
-          console.error(error)
-        }
-      }
-      commit(next)
-      setPreviousHeads({ P1: current.players.P1.head, P2: current.players.P2.head })
-      setLastEvents(events)
-      setMoveCount((n) => n + 1)
-
-      game.current.rounds++
-      game.current.captures += events.filter((e) => e.type === 'CAPTURED' && e.player === 'P1').length
-      if (next.status === 'FINISHED') {
-        recordGame(
-          {
-            ...game.current,
-            winner: next.result!.winner,
-            reason: next.result!.reason,
-            blueCells: territoryCells(next, 'P1'),
-            redCells: territoryCells(next, 'P2'),
-          },
-          territoryPercent(next, 'P1')
-        )
-      }
-
-      const captured = new Map<number, PlayerId>()
-      for (const event of events) {
-        if (event.type !== 'CAPTURED') continue
-        for (const c of event.cells) captured.set(c.y * BOARD_SIZE + c.x, event.player)
-      }
-      if (captured.size > 0) {
-        const id = ++flashId.current
-        setFlash({ cells: captured, lit: true })
-        // Два кадра: сначала рисуем яркую подсветку, затем отпускаем её — CSS transition гасит за 300ms.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            if (flashId.current === id) setFlash({ cells: captured, lit: false })
-          })
-        )
-        setTimeout(() => {
-          if (flashId.current === id) setFlash(null)
-        }, FLASH_MS + 50)
-      }
-    },
-    [commit]
-  )
+  // Автопауза при сворачивании вкладки (5.1.2).
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) controller.pause()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [controller])
 
   useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
+    const onKeyDown = (event: KeyboardEvent) => {
       const direction = KEY_TO_DIRECTION[event.key]
       if (direction) {
         event.preventDefault()
-        handleMove(direction)
+        controller.steer(direction)
+      } else if (event.key === ' ' || event.key === 'p' || event.key === 'P') {
+        event.preventDefault()
+        controller.togglePause()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleMove])
+  }, [controller])
 
-  const legalMoves = state.status === 'PLAYING' ? getLegalMoves(state, 'P1') : []
+  // Всё, что происходит один раз за тик.
+  useEffect(() => {
+    if (ticks === 0) return
+    if (import.meta.env.DEV) {
+      try {
+        assertInvariants(state)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+    feed.current.push(describeRound(events), performance.now())
+
+    const captured = new Map<number, PlayerId>()
+    for (const event of events) {
+      if (event.type !== 'CAPTURED') continue
+      if (event.player === 'P1') match.current.captures++
+      for (const c of event.cells) captured.set(c.y * BOARD_SIZE + c.x, event.player)
+    }
+    if (captured.size > 0) {
+      const id = ++flashId.current
+      setFlash({ cells: captured, lit: true })
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (flashId.current === id) setFlash({ cells: captured, lit: false })
+        })
+      )
+      setTimeout(() => {
+        if (flashId.current === id) setFlash(null)
+      }, FLASH_MS + 50)
+    }
+
+    if (state.status === 'FINISHED' && !match.current.recorded) {
+      match.current.recorded = true
+      recordGame(
+        {
+          startedAt: match.current.startedAt,
+          rounds: ticks,
+          winner: state.result!.winner,
+          reason: state.result!.reason,
+          blueCells: territoryCells(state, 'P1'),
+          redCells: territoryCells(state, 'P2'),
+          captures: match.current.captures,
+          difficulty: settings.difficulty,
+          speed: settings.speed,
+        },
+        territoryPercent(state, 'P1')
+      )
+    }
+  }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const running = phase === 'RUNNING'
+  const now = performance.now()
+  const rawDanger = useMemo(() => state.status === 'PLAYING' && isTrailInDanger(state, 'P1'), [state])
+  const inDanger = danger.current.update(running && rawDanger, now)
+  const messages = [...feed.current.visible(now), ...(inDanger ? [DANGER_MESSAGE] : [])]
+
+  const end = phase === 'FINISHED' ? describeEnd(state, events) : null
   const bluePercent = territoryPercent(state, 'P1')
   const redPercent = territoryPercent(state, 'P2')
-  const inDanger = state.status === 'PLAYING' && isTrailInDanger(state, 'P1')
-  const end = state.status === 'FINISHED' ? describeEnd(state, lastEvents) : null
-  const eventLine = [...describeRound(lastEvents), ...(inDanger ? [DANGER_MESSAGE] : [])].join(' · ')
+  const timeLeft = timeLeftMs(state, tickMs)
+  const finalSeconds = timeLeft <= FINAL_SECONDS * 1000 && phase !== 'FINISHED'
+  const heading = lastQueuedDirection(snap.queue, state.players.P1.direction)
+  const canSteer = phase === 'RUNNING' || phase === 'COUNTDOWN'
+
+  // Свайп по полю: одно направление на жест, после порога 24px.
+  const swipe = useRef<{ id: number; x: number; y: number; fired: boolean } | null>(null)
 
   return (
     <div className="screen">
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         <header className="pt-3">
-          <div className="flex items-center justify-between text-sm font-semibold tracking-wide">
-            <span className="text-cyan-300">BLUE {bluePercent}%</span>
-            <span className="text-neutral-500">Round {state.round}</span>
-            <span className="text-red-300">RED {redPercent}%</span>
+          <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
+            <span className="w-20 text-cyan-300">BLUE {bluePercent}%</span>
+            <span
+              data-testid="timer"
+              className={`flex-1 text-center text-lg tabular-nums ${finalSeconds ? 'timer-final text-red-300' : 'text-neutral-300'}`}
+            >
+              {formatClock(timeLeft)}
+            </span>
+            <span className="w-20 text-right text-red-300">RED {redPercent}%</span>
+            <button
+              type="button"
+              aria-label="Pause"
+              data-testid="pause"
+              disabled={!canSteer}
+              onClick={() => controller.pause()}
+              className="-my-2 -mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-300 active:bg-neutral-800 disabled:opacity-40"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+                <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" />
+                <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" />
+              </svg>
+            </button>
           </div>
           <div
             data-testid="event-line"
-            className={`mt-1 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
+            aria-live="polite"
+            className={`mt-0.5 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
           >
-            {eventLine}
+            {messages.join(' · ')}
           </div>
         </header>
 
-        {/* Поле — наибольший квадрат, который помещается между HUD и D-pad. */}
         <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-2">
           <Board
             state={state}
             flash={flash}
-            previousHeads={previousHeads}
-            roundKey={moveCount}
+            moveMs={running ? tickMs : 0}
             dangerTrail={inDanger}
             highlight={end?.highlight}
             className="board-fit"
-          />
+            style={{ touchAction: 'none' }}
+            onPointerDown={(e) => {
+              swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, fired: false }
+              e.currentTarget.setPointerCapture?.(e.pointerId)
+            }}
+            onPointerMove={(e) => {
+              const s = swipe.current
+              if (!s || s.id !== e.pointerId || s.fired) return
+              const direction = swipeDirection(e.clientX - s.x, e.clientY - s.y)
+              if (direction) {
+                s.fired = true
+                controller.steer(direction)
+              }
+            }}
+            onPointerUp={() => {
+              swipe.current = null
+            }}
+          >
+            {phase === 'COUNTDOWN' && snap.countdown > 0 && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30">
+                <span key={snap.countdown} data-testid="countdown" className="countdown-number">
+                  {snap.countdown}
+                </span>
+              </div>
+            )}
+          </Board>
         </div>
 
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
-          <DPad legalMoves={legalMoves} onMove={handleMove} />
+          <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} />
         </div>
+
+        {phase === 'PAUSED' && (
+          <PauseScreen onResume={() => controller.resume()} onRestart={() => onRestart(false)} onMenu={onMenu} />
+        )}
 
         {end && (
           <GameOverScreen
@@ -171,13 +270,7 @@ export function GameScreen({ onMenu }: { onMenu: () => void }) {
             reason={end.reason}
             bluePercent={bluePercent}
             redPercent={redPercent}
-            onPlayAgain={() => {
-              markLastGameRematch()
-              game.current = { startedAt: new Date().toISOString(), rounds: 0, captures: 0 }
-              commit(createInitialState())
-              setPreviousHeads(null)
-              setLastEvents([])
-            }}
+            onPlayAgain={() => onRestart(true)}
             onMenu={onMenu}
           />
         )}
