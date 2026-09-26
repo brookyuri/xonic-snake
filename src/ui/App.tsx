@@ -5,7 +5,7 @@ import { getLegalMoves } from '../engine/moves'
 import { resolveRound } from '../engine/resolve'
 import { BOARD_SIZE } from '../engine/constants'
 import type { Direction, GameState, PlayerId } from '../engine/types'
-import { randomBot } from '../bot/randomBot'
+import { normalBot } from '../bot/normalBot'
 import { Board, FLASH_MS, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
@@ -48,7 +48,7 @@ export function App() {
       if (current.status !== 'PLAYING') return
       if (!getLegalMoves(current, 'P1').includes(direction)) return
       // Раздел 5.1: ход бота вычисляется от состояния до хода человека.
-      const botMove = randomBot(current, 'P2')
+      const botMove = normalBot(current, 'P2')
       const { state: next, events } = resolveRound(current, direction, botMove)
       if (import.meta.env.DEV) {
         try {
