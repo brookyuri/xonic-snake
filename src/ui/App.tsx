@@ -1,162 +1,32 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createInitialState } from '../engine/state'
-import { assertInvariants } from '../engine/invariants'
-import { getLegalMoves } from '../engine/moves'
-import { resolveRound } from '../engine/resolve'
-import { BOARD_SIZE } from '../engine/constants'
-import type { Direction, GameEvent, GameState, PlayerId, Pos } from '../engine/types'
-import { normalBot } from '../bot/normalBot'
-import { isTrailInDanger } from '../bot/analysis'
-import { Board, FLASH_MS, type Flash } from './Board'
-import { DPad } from './DPad'
-import { GameOverScreen } from './GameOverScreen'
-import { DANGER_MESSAGE, describeRound } from './roundText'
-import { describeEnd } from './endText'
+import { useState } from 'react'
+import { GameScreen } from './GameScreen'
+import { HowToScreen } from './HowToScreen'
+import { MenuScreen } from './MenuScreen'
+import { readJSON, writeJSON } from './storage'
 
-const KEY_TO_DIRECTION: Record<string, Direction> = {
-  ArrowUp: 'UP',
-  ArrowDown: 'DOWN',
-  ArrowLeft: 'LEFT',
-  ArrowRight: 'RIGHT',
-  w: 'UP',
-  s: 'DOWN',
-  a: 'LEFT',
-  d: 'RIGHT',
-}
+const SEEN_RULES_KEY = 'ts_seen_rules'
 
-function territoryPercent(state: GameState, player: PlayerId): number {
-  let count = 0
-  for (const row of state.board) {
-    for (const cell of row) {
-      if (cell.territory === player) count++
-    }
-  }
-  return Math.round((count / (BOARD_SIZE * BOARD_SIZE)) * 100)
-}
+type Screen = 'menu' | 'howto' | 'game'
 
 export function App() {
-  const [state, setState] = useState<GameState>(createInitialState)
-  const stateRef = useRef(state)
-  const [flash, setFlash] = useState<Flash | null>(null)
-  const flashId = useRef(0)
-  const [previousHeads, setPreviousHeads] = useState<Record<PlayerId, Pos> | null>(null)
-  const [lastEvents, setLastEvents] = useState<GameEvent[]>([])
-  const [moveCount, setMoveCount] = useState(0)
-
-  const commit = useCallback((next: GameState) => {
-    stateRef.current = next
-    setState(next)
-  }, [])
-
-  const handleMove = useCallback(
-    (direction: Direction) => {
-      const current = stateRef.current
-      if (current.status !== 'PLAYING') return
-      if (!getLegalMoves(current, 'P1').includes(direction)) return
-      // Раздел 5.1: ход бота вычисляется от состояния до хода человека.
-      const botMove = normalBot(current, 'P2')
-      const { state: next, events } = resolveRound(current, direction, botMove)
-      if (import.meta.env.DEV) {
-        try {
-          assertInvariants(next)
-        } catch (error) {
-          console.error(error)
-        }
-      }
-      commit(next)
-      setPreviousHeads({ P1: current.players.P1.head, P2: current.players.P2.head })
-      setLastEvents(events)
-      setMoveCount((n) => n + 1)
-
-      const captured = new Map<number, PlayerId>()
-      for (const event of events) {
-        if (event.type !== 'CAPTURED') continue
-        for (const c of event.cells) captured.set(c.y * BOARD_SIZE + c.x, event.player)
-      }
-      if (captured.size > 0) {
-        const id = ++flashId.current
-        setFlash({ cells: captured, lit: true })
-        // Два кадра: сначала рисуем яркую подсветку, затем отпускаем её — CSS transition гасит за 300ms.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            if (flashId.current === id) setFlash({ cells: captured, lit: false })
-          })
-        )
-        setTimeout(() => {
-          if (flashId.current === id) setFlash(null)
-        }, FLASH_MS + 50)
-      }
-    },
-    [commit]
+  // При первом запуске сразу показываем правила.
+  const [screen, setScreen] = useState<Screen>(() =>
+    readJSON(SEEN_RULES_KEY, false) ? 'menu' : 'howto'
   )
+  const [firstVisit, setFirstVisit] = useState(() => !readJSON(SEEN_RULES_KEY, false))
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const direction = KEY_TO_DIRECTION[event.key]
-      if (direction) {
-        event.preventDefault()
-        handleMove(direction)
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleMove])
-
-  const legalMoves = state.status === 'PLAYING' ? getLegalMoves(state, 'P1') : []
-  const bluePercent = territoryPercent(state, 'P1')
-  const redPercent = territoryPercent(state, 'P2')
-  const inDanger = state.status === 'PLAYING' && isTrailInDanger(state, 'P1')
-  const end = state.status === 'FINISHED' ? describeEnd(state, lastEvents) : null
-  const eventLine = [...describeRound(lastEvents), ...(inDanger ? [DANGER_MESSAGE] : [])].join(' · ')
-
-  return (
-    <div className="screen">
-      <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
-        <header className="pt-3">
-          <div className="flex items-center justify-between text-sm font-semibold tracking-wide">
-            <span className="text-cyan-300">BLUE {bluePercent}%</span>
-            <span className="text-neutral-500">Round {state.round}</span>
-            <span className="text-red-300">RED {redPercent}%</span>
-          </div>
-          <div
-            data-testid="event-line"
-            className={`mt-1 h-5 truncate text-center text-sm ${inDanger ? 'text-amber-300' : 'text-neutral-300'}`}
-          >
-            {eventLine}
-          </div>
-        </header>
-
-        {/* Поле — наибольший квадрат, который помещается между HUD и D-pad. */}
-        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-2">
-          <Board
-            state={state}
-            flash={flash}
-            previousHeads={previousHeads}
-            roundKey={moveCount}
-            dangerTrail={inDanger}
-            highlight={end?.highlight}
-            className="board-fit"
-          />
-        </div>
-
-        <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
-          <DPad legalMoves={legalMoves} onMove={handleMove} />
-        </div>
-
-        {end && (
-          <GameOverScreen
-            title={end.title}
-            reason={end.reason}
-            bluePercent={bluePercent}
-            redPercent={redPercent}
-            onPlayAgain={() => {
-              commit(createInitialState())
-              setPreviousHeads(null)
-              setLastEvents([])
-            }}
-          />
-        )}
-      </div>
-    </div>
-  )
+  if (screen === 'howto') {
+    return (
+      <HowToScreen
+        doneLabel={firstVisit ? "GOT IT — LET'S PLAY" : 'BACK'}
+        onDone={() => {
+          writeJSON(SEEN_RULES_KEY, true)
+          setScreen(firstVisit ? 'game' : 'menu')
+          setFirstVisit(false)
+        }}
+      />
+    )
+  }
+  if (screen === 'game') return <GameScreen onMenu={() => setScreen('menu')} />
+  return <MenuScreen onPlay={() => setScreen('game')} onHowTo={() => setScreen('howto')} />
 }
