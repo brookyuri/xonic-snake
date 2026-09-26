@@ -18,6 +18,11 @@ export interface MatchStats {
   capturedCells: number
   winnerTerritory: number
   decisive: number
+  /** Победы стороны независимо от бота — для проверки асимметрии P1/P2. */
+  sideWins: Record<PlayerId, number>
+  /** Победы бота A, когда он играл за P1 / за P2. */
+  aWinsAs: Record<PlayerId, number>
+  aGamesAs: Record<PlayerId, number>
 }
 
 function territorySize(state: GameState, player: PlayerId): number {
@@ -41,6 +46,9 @@ export function playMatch(name: string, a: Bot, b: Bot, games: number, seed: num
     capturedCells: 0,
     winnerTerritory: 0,
     decisive: 0,
+    sideWins: { P1: 0, P2: 0 },
+    aWinsAs: { P1: 0, P2: 0 },
+    aGamesAs: { P1: 0, P2: 0 },
   }
 
   for (let game = 0; game < games; game++) {
@@ -68,10 +76,14 @@ export function playMatch(name: string, a: Bot, b: Bot, games: number, seed: num
     const { winner, reason } = state.result!
     stats.reasons[reason] = (stats.reasons[reason] ?? 0) + 1
     stats.totalRounds += rounds
+    stats.aGamesAs[aSide]++
     if (winner === 'DRAW') stats.draws++
     else {
-      if (winner === aSide) stats.wins++
-      else stats.losses++
+      stats.sideWins[winner]++
+      if (winner === aSide) {
+        stats.wins++
+        stats.aWinsAs[aSide]++
+      } else stats.losses++
       stats.decisive++
       stats.winnerTerritory += territorySize(state, winner)
     }
@@ -91,5 +103,7 @@ export function report(s: MatchStats): string {
       ` | ${(s.totalRounds / s.games).toFixed(1)} | ${(s.capturedCells / Math.max(1, s.captures)).toFixed(2)}` +
       ` | ${(s.winnerTerritory / Math.max(1, s.decisive)).toFixed(1)} |`,
     `  reasons: ${reasons}`,
+    `  sides: P1 wins ${pct(s.sideWins.P1, s.games)}, P2 wins ${pct(s.sideWins.P2, s.games)}` +
+      ` · A as P1 ${pct(s.aWinsAs.P1, s.aGamesAs.P1)}, A as P2 ${pct(s.aWinsAs.P2, s.aGamesAs.P2)}`,
   ].join('\n')
 }
