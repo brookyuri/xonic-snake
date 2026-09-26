@@ -1,4 +1,4 @@
-import { BOARD_SIZE, START } from './constants'
+import { BOARD_SIZE, MAX_ROUNDS, START } from './constants'
 import type { Cell, GameState, Player, PlayerId } from './types'
 
 function createEmptyBoard(): Cell[][] {
@@ -24,7 +24,7 @@ function createStartPlayer(id: PlayerId): Player {
   }
 }
 
-export function createInitialState(): GameState {
+export function createInitialState(opts: { maxRounds?: number } = {}): GameState {
   const board = createEmptyBoard()
 
   for (const id of ['P1', 'P2'] as const) {
@@ -43,6 +43,7 @@ export function createInitialState(): GameState {
       P2: createStartPlayer('P2'),
     },
     round: 0,
+    maxRounds: opts.maxRounds ?? MAX_ROUNDS,
     status: 'PLAYING',
   }
 }

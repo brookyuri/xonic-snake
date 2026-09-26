@@ -1,10 +1,11 @@
-import { BOARD_SIZE, DIRECTION_DELTA, MAX_ROUNDS } from './constants'
+import { BOARD_SIZE, DIRECTION_DELTA } from './constants'
 import { getLegalMoves } from './moves'
 import { computeCapture } from './capture'
 import type {
   Direction,
   GameEvent,
   GameState,
+  HeadOnDetail,
   Player,
   PlayerId,
   Pos,
@@ -30,6 +31,7 @@ function cloneState(state: GameState): GameState {
       P2: clonePlayer(state.players.P2),
     },
     round: state.round,
+    maxRounds: state.maxRounds,
     status: state.status,
     result: state.result ? { ...state.result } : undefined,
   }
@@ -86,10 +88,14 @@ export function resolveRound(
     events.push({ type: 'MOVED', player: id, from: oldHead[id], to })
   }
 
-  const finish = (result: { winner: PlayerId | 'DRAW'; reason: Reason }) => {
+  const finish = (result: { winner: PlayerId | 'DRAW'; reason: Reason }, detail?: HeadOnDetail) => {
     working.status = 'FINISHED'
     working.result = result
-    events.push({ type: 'GAME_OVER', winner: result.winner, reason: result.reason })
+    events.push(
+      detail
+        ? { type: 'GAME_OVER', winner: result.winner, reason: result.reason, detail }
+        : { type: 'GAME_OVER', winner: result.winner, reason: result.reason }
+    )
     return { state: working, events }
   }
 
@@ -103,12 +109,15 @@ export function resolveRound(
     const p2Home = isHome('P2')
 
     let winner: PlayerId | 'DRAW'
-    if (p1Home && !p2Home) winner = 'P1'
-    else if (p2Home && !p1Home) winner = 'P2'
-    else {
+    let detail: HeadOnDetail
+    if (p1Home !== p2Home) {
+      winner = p1Home ? 'P1' : 'P2'
+      detail = 'DEFENDER_HOME'
+    } else {
       const t1 = territorySize(state, 'P1')
       const t2 = territorySize(state, 'P2')
       winner = t1 === t2 ? 'DRAW' : t1 > t2 ? 'P1' : 'P2'
+      detail = t1 === t2 ? 'EQUAL' : 'BIGGER_TERRITORY'
     }
 
     if (winner === 'DRAW') {
@@ -121,7 +130,7 @@ export function resolveRound(
       working.players[loser].alive = false
       events.push({ type: 'DIED', player: loser, reason: 'HEAD_ON', at: newHead[loser] })
     }
-    return finish({ winner, reason: 'HEAD_ON' })
+    return finish({ winner, reason: 'HEAD_ON' }, detail)
   }
 
   // Шаг 4: удары по следам (используем следы S0 — исходный state, ещё не мутирован)
@@ -243,7 +252,7 @@ export function resolveRound(
 
   working.round += 1
 
-  if (working.round >= MAX_ROUNDS) {
+  if (working.round >= working.maxRounds) {
     if (finalTerritory.P1 === finalTerritory.P2) {
       return finish({ winner: 'DRAW', reason: 'ROUND_LIMIT' })
     }

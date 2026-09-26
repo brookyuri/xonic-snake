@@ -1,4 +1,4 @@
-import { BOARD_SIZE, MAX_ROUNDS } from './constants'
+import { BOARD_SIZE } from './constants'
 import type { GameState, PlayerId } from './types'
 
 const PLAYER_IDS: PlayerId[] = ['P1', 'P2']
@@ -89,6 +89,8 @@ export function assertInvariants(state: GameState): void {
     for (const id of PLAYER_IDS) {
       if (territory[id] <= 0) fail('I7', `${id} has no territory while PLAYING`)
     }
-    if (state.round >= MAX_ROUNDS) fail('I7', `round ${state.round} >= ${MAX_ROUNDS} while PLAYING`)
+    if (state.round >= state.maxRounds) {
+      fail('I7', `round ${state.round} >= maxRounds ${state.maxRounds} while PLAYING`)
+    }
   }
 }

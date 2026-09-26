@@ -1,4 +1,4 @@
-import { BOARD_SIZE } from '../constants'
+import { BOARD_SIZE, MAX_ROUNDS } from '../constants'
 import { resolveRound } from '../resolve'
 import { assertInvariants } from '../invariants'
 import type { Cell, Direction, GameEvent, GameState, Owner, Pos } from '../types'
@@ -61,6 +61,7 @@ export function territorySize(state: GameState, player: 'P1' | 'P2'): number {
  */
 export interface GridOptions {
   round?: number
+  maxRounds?: number
   direction?: { P1?: Direction; P2?: Direction }
   trail?: { P1?: Pos[]; P2?: Pos[] }
   headCellUnder?: { P1?: Owner; P2?: Owner }
@@ -149,6 +150,7 @@ export function stateFromGrid(grid: string[], options: GridOptions = {}): GameSt
       },
     },
     round: options.round ?? 0,
+    maxRounds: options.maxRounds ?? MAX_ROUNDS,
     status: 'PLAYING',
   }
 }

@@ -1,6 +1,7 @@
 import type { Direction, Pos } from './types'
 
 export const BOARD_SIZE = 15
+/** Лимит матча по умолчанию (тесты, бенчмарк). В игре задаётся по скорости — раздел 5.3. */
 export const MAX_ROUNDS = 100
 
 export const DIRECTION_DELTA: Record<Direction, Pos> = {

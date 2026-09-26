@@ -26,6 +26,7 @@ function mirror(state: GameState): GameState {
       .reverse(),
     players: { P1: flipPlayer(state.players.P2, 'P1'), P2: flipPlayer(state.players.P1, 'P2') },
     round: state.round,
+    maxRounds: state.maxRounds,
     status: state.status,
   }
 }

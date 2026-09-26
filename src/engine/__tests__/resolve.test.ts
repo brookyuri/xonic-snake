@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialState } from '../state'
 import { BOARD_SIZE } from '../constants'
+import type { Direction } from '../types'
 import { stateFromGrid, emptyGrid, mergeFragment, play, territorySize } from './testHelpers'
 
 describe('T01 — exit home and start trail', () => {
@@ -343,5 +344,64 @@ describe('DIED.at — the cell the end screen highlights', () => {
     expect(died(play(state, 'RIGHT', 'LEFT').events)).toEqual([
       { type: 'DIED', player: 'P1', reason: 'HEAD_ON', at: { x: 6, y: 5 } },
     ])
+  })
+})
+
+describe('GAME_OVER.detail for HEAD_ON (v0.5)', () => {
+  const gameOver = (events: ReturnType<typeof play>['events']) => events.find((e) => e.type === 'GAME_OVER')
+
+  it('T10: the defender at home wins — DEFENDER_HOME', () => {
+    const grid = emptyGrid()
+    grid[5] = '.....1R2.......'
+    const state = stateFromGrid(grid, { direction: { P1: 'UP', P2: 'UP' } })
+    expect(gameOver(play(state, 'RIGHT', 'LEFT').events)).toEqual({
+      type: 'GAME_OVER',
+      winner: 'P2',
+      reason: 'HEAD_ON',
+      detail: 'DEFENDER_HOME',
+    })
+  })
+
+  it('T11: bigger territory wins — BIGGER_TERRITORY', () => {
+    const grid = emptyGrid()
+    for (const y of [1, 2, 3]) grid[y] = RED_ROW
+    for (const y of [10, 11, 12, 13]) grid[y] = BLUE_ROW
+    grid[5] = '.....12........'
+    const state = stateFromGrid(grid, { direction: { P1: 'DOWN', P2: 'DOWN' } })
+    expect(gameOver(play(state, 'RIGHT', 'LEFT').events)).toMatchObject({ winner: 'P1', detail: 'BIGGER_TERRITORY' })
+  })
+
+  it('T12: equal territory — EQUAL draw', () => {
+    const grid = emptyGrid()
+    for (const y of [1, 2, 3]) grid[y] = RED_ROW
+    for (const y of [10, 11, 12]) grid[y] = BLUE_ROW
+    grid[5] = '.....12........'
+    const state = stateFromGrid(grid, { direction: { P1: 'DOWN', P2: 'DOWN' } })
+    expect(gameOver(play(state, 'RIGHT', 'LEFT').events)).toMatchObject({ winner: 'DRAW', detail: 'EQUAL' })
+  })
+
+  it('other endings carry no detail', () => {
+    const grid = mergeFragment(emptyGrid(), ['.bbbb1.', '..2....'], 3, 6)
+    const state = stateFromGrid(grid, {
+      direction: { P1: 'RIGHT', P2: 'UP' },
+      trail: { P1: [{ x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 }, { x: 8, y: 6 }] },
+    })
+    expect(gameOver(play(state, 'UP', 'UP').events)).not.toHaveProperty('detail')
+  })
+})
+
+describe('maxRounds (v0.5)', () => {
+  it('defaults to 100', () => {
+    expect(createInitialState().maxRounds).toBe(100)
+  })
+
+  it('ends the match with ROUND_LIMIT when round reaches maxRounds', () => {
+    let state = createInitialState({ maxRounds: 3 })
+    // Обе стороны ходят внутри дома — партию может закончить только лимит.
+    const moves: [Direction, Direction][] = [['LEFT', 'LEFT'], ['DOWN', 'UP'], ['RIGHT', 'RIGHT']]
+    for (const [m1, m2] of moves) state = play(state, m1, m2).state
+    expect(state.round).toBe(3)
+    expect(state.status).toBe('FINISHED')
+    expect(state.result).toEqual({ winner: 'DRAW', reason: 'ROUND_LIMIT' })
   })
 })

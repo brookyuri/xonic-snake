@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { createInitialState } from '../state'
 import { resolveRound } from '../resolve'
 import { assertInvariants } from '../invariants'
-import { MAX_ROUNDS } from '../constants'
 import type { Reason } from '../types'
 import { randomBot } from '../../bot/randomBot'
 import { mulberry32 } from '../../bot/rng'
@@ -42,7 +41,7 @@ describe('stress: randomBot vs randomBot', () => {
         }
         state = result.state
         // I8: игра заканчивается не позже раунда 100
-        expect(rounds).toBeLessThanOrEqual(MAX_ROUNDS)
+        expect(rounds).toBeLessThanOrEqual(state.maxRounds)
       }
       const reason = state.result!.reason
       reasons[reason] = (reasons[reason] ?? 0) + 1

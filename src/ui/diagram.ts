@@ -1,3 +1,4 @@
+import { MAX_ROUNDS } from '../engine/constants'
 import type { Cell, Direction, GameState, Pos } from '../engine/types'
 
 /**
@@ -25,5 +26,5 @@ export function diagram(rows: string[], directions: { P1: Direction; P2: Directi
     trail: [],
     alive: true,
   })
-  return { board, players: { P1: player('P1'), P2: player('P2') }, round: 0, status: 'PLAYING' }
+  return { board, players: { P1: player('P1'), P2: player('P2') }, round: 0, maxRounds: MAX_ROUNDS, status: 'PLAYING' }
 }

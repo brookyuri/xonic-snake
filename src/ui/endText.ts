@@ -13,11 +13,6 @@ function cellsOf(state: GameState, player: PlayerId): number {
   return n
 }
 
-function onOwnTerritory(state: GameState, player: PlayerId): boolean {
-  const { head } = state.players[player]
-  return state.board[head.y][head.x].territory === player
-}
-
 /** Итог партии с точки зрения человека (P1 = "You"). */
 export function describeEnd(state: GameState, events: GameEvent[]): EndSummary {
   const { winner, reason } = state.result!
@@ -38,13 +33,16 @@ export function describeEnd(state: GameState, events: GameEvent[]): EndSummary {
     case 'SELF_TRAIL':
       text = loser === 'P1' ? 'You crossed your own trail' : 'RED crossed its own trail'
       break
-    case 'HEAD_ON':
-      // На шаге 3 доска не меняется, поэтому «дома ли голова» читается из итогового состояния.
-      if (winner === 'DRAW') text = 'Head-on draw'
-      else if (onOwnTerritory(state, winner) && !onOwnTerritory(state, loser!))
+    case 'HEAD_ON': {
+      // Причину решения даёт engine (GAME_OVER.detail, v0.5).
+      const over = events.find((e) => e.type === 'GAME_OVER')
+      const detail = over?.type === 'GAME_OVER' ? over.detail : undefined
+      if (detail === 'DEFENDER_HOME')
         text = winner === 'P2' ? 'Head-on! RED was at home' : 'Head-on! You were at home'
-      else text = 'Head-on! Bigger territory wins'
+      else if (detail === 'BIGGER_TERRITORY') text = 'Head-on! Bigger territory wins'
+      else text = 'Head-on draw'
       break
+    }
     case 'ENGULFED':
       text = loser === 'P1' ? 'RED enclosed your trail' : "You enclosed RED's trail"
       break

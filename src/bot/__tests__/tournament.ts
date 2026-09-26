@@ -1,7 +1,6 @@
 import { createInitialState } from '../../engine/state'
 import { resolveRound } from '../../engine/resolve'
 import { assertInvariants } from '../../engine/invariants'
-import { MAX_ROUNDS } from '../../engine/constants'
 import type { GameState, PlayerId, Reason } from '../../engine/types'
 import { mulberry32 } from '../rng'
 import type { Bot } from '../types'
@@ -70,7 +69,7 @@ export function playMatch(name: string, a: Bot, b: Bot, games: number, seed: num
       }
       state = result.state
       rounds++
-      if (rounds > MAX_ROUNDS) throw new Error(`${name}: game ${game} exceeded ${MAX_ROUNDS} rounds`)
+      if (rounds > state.maxRounds) throw new Error(`${name}: game ${game} exceeded ${state.maxRounds} rounds`)
     }
 
     const { winner, reason } = state.result!
