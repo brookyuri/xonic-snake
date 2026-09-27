@@ -35,28 +35,32 @@ export function computeCapture(
   const isObstacle = (x: number, y: number) =>
     board[y][x].territory === player || board[y][x].trail === player
 
-  const componentOf: number[][] = board.map((row) => row.map(() => -1))
+  // Плоские массивы вместо Pos[][]: захват считается и ботом Duel, и в stress Solo.
+  const componentOf = new Int32Array(width * height).fill(-1)
   const components: Pos[][] = []
   const trail: Pos[] = []
+  const queue: number[] = []
 
   for (let sy = 0; sy < height; sy++) {
     for (let sx = 0; sx < width; sx++) {
       if (board[sy][sx].trail === player) trail.push({ x: sx, y: sy })
-      if (componentOf[sy][sx] !== -1 || isObstacle(sx, sy)) continue
+      if (componentOf[sy * width + sx] !== -1 || isObstacle(sx, sy)) continue
       const id = components.length
       const cells: Pos[] = []
-      const queue: Pos[] = [{ x: sx, y: sy }]
-      componentOf[sy][sx] = id
+      queue.push(sy * width + sx)
+      componentOf[sy * width + sx] = id
       while (queue.length > 0) {
-        const cur = queue.pop()!
-        cells.push(cur)
+        const key = queue.pop()!
+        const cx = key % width
+        const cy = (key - cx) / width
+        cells.push({ x: cx, y: cy })
         for (const d of NEIGHBORS) {
-          const nx = cur.x + d.x
-          const ny = cur.y + d.y
+          const nx = cx + d.x
+          const ny = cy + d.y
           if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
-          if (componentOf[ny][nx] !== -1 || isObstacle(nx, ny)) continue
-          componentOf[ny][nx] = id
-          queue.push({ x: nx, y: ny })
+          if (componentOf[ny * width + nx] !== -1 || isObstacle(nx, ny)) continue
+          componentOf[ny * width + nx] = id
+          queue.push(ny * width + nx)
         }
       }
       components.push(cells)
@@ -65,7 +69,8 @@ export function computeCapture(
 
   const excluded = new Set<number>()
   for (const p of excludedCells) {
-    const id = componentOf[p.y]?.[p.x] ?? -1
+    const inside = p.x >= 0 && p.x < width && p.y >= 0 && p.y < height
+    const id = inside ? componentOf[p.y * width + p.x] : -1
     if (id !== -1) excluded.add(id)
   }
   if (excluded.size === 0 && opts.excludeLargestIfNoneFound) {

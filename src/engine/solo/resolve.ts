@@ -13,13 +13,29 @@ export function getLegalMoves(state: SoloState, _player: 'P1' = 'P1'): Direction
   return legalMovesFrom(state.player.head, state.player.direction, SOLO_BOARD_SIZE)
 }
 
-function cloneState(state: SoloState): SoloState {
-  return {
+/**
+ * Рабочая копия для тика. Доска копируется по строкам при первой записи: за тик
+ * обычно меняется 0–1 клетка из 400, а неизменённые строки остаются общими со входом
+ * (вход не мутируется — он просто делит с результатом строки, которые никто не менял).
+ */
+function workingCopy(state: SoloState) {
+  const board = state.board.slice()
+  const copied = new Array<boolean>(board.length).fill(false)
+  const w: SoloState = {
     ...state,
-    board: state.board.map((row) => row.map((cell) => ({ ...cell }))),
+    board,
     player: { ...state.player, head: { ...state.player.head }, trail: state.player.trail.map((p) => ({ ...p })) },
     balls: state.balls.map((b) => ({ pos: { ...b.pos }, vel: { ...b.vel } })),
   }
+  /** Строка y доски, которую можно менять. */
+  const row = (y: number) => {
+    if (!copied[y]) {
+      board[y] = board[y].map((cell) => ({ territory: cell.territory, trail: cell.trail }))
+      copied[y] = true
+    }
+    return board[y]
+  }
+  return { w, row }
 }
 
 const samePos = (a: Pos, b: Pos) => a.x === b.x && a.y === b.y
@@ -35,7 +51,7 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
   if (!getLegalMoves(state).includes(move)) throw new Error(`Illegal move: ${move}`)
 
   const events: SoloEvent[] = []
-  const w = cloneState(state)
+  const { w, row } = workingCopy(state)
   const player = w.player
 
   // 2. Движение змейки.
@@ -48,7 +64,7 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
 
   const loseLife = (reason: LifeLostReason, at: Pos) => {
     // След удаляется, захваченная земля остаётся; змейка на старт, шарики где были.
-    for (const p of player.trail) w.board[p.y][p.x].trail = 'NONE'
+    for (const p of player.trail) row(p.y)[p.x].trail = 'NONE'
     w.player = startPlayer()
     w.lives -= 1
     events.push({ type: 'LIFE_LOST', reason, at: { ...at }, livesLeft: w.lives })
@@ -78,8 +94,9 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
     )
     let inner = 0
     for (const c of cells) {
-      w.board[c.y][c.x].territory = 'P1'
-      w.board[c.y][c.x].trail = 'NONE'
+      const cell = row(c.y)[c.x]
+      cell.territory = 'P1'
+      cell.trail = 'NONE'
       if (!isFrame(c.x, c.y)) inner++
     }
     player.trail = []
@@ -90,6 +107,7 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
   }
 
   // 6. Обновление следа.
+  row(player.head.y)
   if (extendTrail(w.board, player)) events.push({ type: 'TRAIL_STARTED' })
 
   // 7. Движение шариков — по доске после захвата.

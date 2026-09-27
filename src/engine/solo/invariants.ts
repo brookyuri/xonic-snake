@@ -1,5 +1,4 @@
-import { MAX_LIVES, SOLO_BOARD_SIZE, ballsForLevel } from './config'
-import { isFrame, progressOf } from './state'
+import { INNER_CELLS, MAX_LIVES, SOLO_BOARD_SIZE, ballsForLevel } from './config'
 import type { SoloState } from './types'
 
 function fail(id: string, message: string): never {
@@ -13,7 +12,8 @@ function fail(id: string, message: string): never {
 export function assertSoloInvariants(state: SoloState, prev?: SoloState): void {
   const { board, player, balls } = state
   const N = SOLO_BOARD_SIZE
-  if (board.length !== N || board.some((row) => row.length !== N)) fail('board', `board is not ${N}×${N}`)
+  if (board.length !== N) fail('board', `board has ${board.length} rows, not ${N}`)
+  for (let y = 0; y < N; y++) if (board[y].length !== N) fail('board', `row ${y} is not ${N} wide`)
 
   // S1: шарик никогда не стоит на земле.
   for (const b of balls) {
@@ -22,9 +22,24 @@ export function assertSoloInvariants(state: SoloState, prev?: SoloState): void {
     if (Math.abs(b.vel.dx) !== 1 || Math.abs(b.vel.dy) !== 1) fail('S1', `ball velocity is not diagonal`)
   }
 
-  // S2: слой trail совпадает с player.trail.
+  // Один проход по доске: следы (S2), земля внутреннего поля (S3), рамка (S6).
+  // Проверяется после каждого тика в stress (1.4 млн раз), поэтому без вызовов в цикле.
   let boardTrail = 0
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (board[y][x].trail !== 'NONE') boardTrail++
+  let inner = 0
+  const last = N - 1
+  for (let y = 0; y < N; y++) {
+    const row = board[y]
+    const frameRow = y === 0 || y === last
+    for (let x = 0; x < N; x++) {
+      const cell = row[x]
+      if (cell.trail !== 'NONE') boardTrail++
+      if (frameRow || x === 0 || x === last) {
+        if (cell.territory !== 'P1') fail('S6', `frame cell (${x},${y}) is not land`)
+      } else if (cell.territory === 'P1') inner++
+    }
+  }
+
+  // S2: слой trail совпадает с player.trail.
   for (const p of player.trail) {
     if (board[p.y][p.x].trail !== 'P1') fail('S2', `trail cell (${p.x},${p.y}) missing on the board`)
     if (board[p.y][p.x].territory === 'P1') fail('S2', `trail cell (${p.x},${p.y}) is land`)
@@ -38,7 +53,7 @@ export function assertSoloInvariants(state: SoloState, prev?: SoloState): void {
 
   // S3: 0 ≤ progress ≤ 1, совпадает с доской; внутри уровня не убывает.
   if (state.progress < 0 || state.progress > 1) fail('S3', `progress ${state.progress}`)
-  if (Math.abs(state.progress - progressOf(board)) > 1e-9) fail('S3', `progress ${state.progress} != board ${progressOf(board)}`)
+  if (Math.abs(state.progress - inner / INNER_CELLS) > 1e-9) fail('S3', `progress ${state.progress} != board ${inner / INNER_CELLS}`)
   if (prev && prev.level === state.level && state.progress < prev.progress) {
     fail('S3', `progress went down ${prev.progress} -> ${state.progress}`)
   }
@@ -50,19 +65,12 @@ export function assertSoloInvariants(state: SoloState, prev?: SoloState): void {
   // S5: число шариков = level + 1.
   if (balls.length !== ballsForLevel(state.level)) fail('S5', `${balls.length} balls on level ${state.level}`)
 
-  // S6: рамка всегда земля.
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      if (isFrame(x, y) && board[y][x].territory !== 'P1') fail('S6', `frame cell (${x},${y}) is not land`)
-    }
-  }
-
   // Голова: на своей земле с пустым следом или на последней клетке следа (как I4 в Duel).
   if (state.status === 'PLAYING' || state.status === 'LEVEL_COMPLETE') {
     const { head } = player
     const home = board[head.y][head.x].territory === 'P1'
-    const last = player.trail[player.trail.length - 1]
+    const end = player.trail[player.trail.length - 1]
     if (home && player.trail.length > 0) fail('head', `home at (${head.x},${head.y}) with a trail`)
-    if (!home && (!last || last.x !== head.x || last.y !== head.y)) fail('head', `head (${head.x},${head.y}) is not the trail end`)
+    if (!home && (!end || end.x !== head.x || end.y !== head.y)) fail('head', `head (${head.x},${head.y}) is not the trail end`)
   }
 }
