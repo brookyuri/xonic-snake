@@ -5,69 +5,72 @@ import type { Direction, GameEvent, GameState } from '../engine/types'
 import type { SteppedBot } from '../bot/types'
 import { enqueueDirection, straightOrClockwise, takeHumanMove } from './input'
 
-export type Phase = 'COUNTDOWN' | 'RUNNING' | 'PAUSED' | 'FINISHED'
+/**
+ * COUNTDOWN / RUNNING / PAUSED / FINISHED — общие для режимов. LIFE_LOST и LEVEL_CLEAR —
+ * только Solo: короткая пауза в игре (вспышка удара, экран «LEVEL N CLEAR»), затем отсчёт.
+ */
+export type Phase = 'COUNTDOWN' | 'RUNNING' | 'PAUSED' | 'FINISHED' | 'LIFE_LOST' | 'LEVEL_CLEAR'
 
 export const COUNTDOWN_MS = 3000
 
-export interface MatchOptions {
-  tickMs: number
-  maxRounds: number
-  /** Бот за RED (P2), пошаговый. Видит только state на начало тика. */
-  bot: SteppedBot
-  rng?: () => number
-  /** Часы матча в мс. В браузере — performance.now, в тестах — фейковые. */
-  now?: () => number
-  countdownMs?: number
-  /** Недопустимый ход бота — баг: в strict-режиме бросаем, иначе правило упора 5.1. */
-  strict?: boolean
-}
-
-export interface MatchSnapshot {
+export interface Snapshot<S, E> {
   phase: Phase
-  state: GameState
+  state: S
   /** События последнего тика. */
-  events: GameEvent[]
-  /** Сыграно тиков. */
+  events: E[]
+  /** Сыграно тиков (за всю партию). */
   ticks: number
   /** 3, 2, 1 во время отсчёта; 0 в остальное время. */
   countdown: number
   /** Нажатия, ещё не забранные тиками (5.1.1). */
   queue: readonly Direction[]
-  /** Сколько занял сам тик (resolveRound, плюс ход бота, если он не был посчитан заранее), мс. */
+  /** Сколько занял сам тик (движок, плюс ход бота, если он не был посчитан заранее), мс. */
   lastTickCostMs: number
   /** Когда начался последний тик (часы матча). */
   lastTickAt: number
 }
 
+export type MatchSnapshot = Snapshot<GameState, GameEvent>
+
+export interface TickOptions {
+  tickMs: number
+  /** Часы матча в мс. В браузере — performance.now, в тестах — фейковые. */
+  now?: () => number
+  countdownMs?: number
+}
+
+/** Итог тика для общего цикла: новое состояние и куда перейти дальше. */
+export interface TickResult<S, E> {
+  state: S
+  events: E[]
+  queue: Direction[]
+  /** RUNNING, FINISHED или пауза в игре (LIFE_LOST / LEVEL_CLEAR) на holdMs. */
+  phase: Phase
+  holdMs?: number
+}
+
 /**
- * Матч в реальном времени (раздел 5.1). UI вызывает frame() на каждом кадре
- * (requestAnimationFrame); контроллер сам решает, пора ли тикать.
+ * Общий цикл реального времени (GAME_RULES.md 5.1–5.1.2) для Duel и Solo: отсчёт
+ * 3-2-1, тики без дрейфа и без «догона», очередь нажатий, пауза. UI вызывает frame()
+ * на каждом кадре (requestAnimationFrame); контроллер сам решает, пора ли тикать.
  */
-export class MatchController {
-  private readonly opts: Required<Omit<MatchOptions, 'rng' | 'strict'>> & Pick<MatchOptions, 'rng' | 'strict'>
+export abstract class TickController<S, E> {
+  protected readonly now: () => number
+  protected readonly tickMs: number
+  private readonly countdownMs: number
   private listeners = new Set<() => void>()
   private countdownEndsAt = 0
   private nextTickAt = 0
-  /** Решение бота для конкретного state: генератор, который можно продвигать по кускам. */
-  private pending: {
-    state: GameState
-    steps: Generator<void, Direction, void>
-    move: Direction | null
-    ms: number
-  } | null = null
-  /** Сколько думал бот над последним ходом, мс (для диагностики производительности). */
-  lastBotMs = 0
-  snapshot: MatchSnapshot
+  private holdEndsAt = 0
+  snapshot: Snapshot<S, E>
 
-  constructor(options: MatchOptions) {
-    this.opts = {
-      now: () => performance.now(),
-      countdownMs: COUNTDOWN_MS,
-      ...options,
-    }
+  constructor(options: TickOptions, initial: S) {
+    this.now = options.now ?? (() => performance.now())
+    this.tickMs = options.tickMs
+    this.countdownMs = options.countdownMs ?? COUNTDOWN_MS
     this.snapshot = {
       phase: 'COUNTDOWN',
-      state: createInitialState({ maxRounds: options.maxRounds }),
+      state: initial,
       events: [],
       ticks: 0,
       countdown: 0,
@@ -78,22 +81,35 @@ export class MatchController {
     this.startCountdown()
   }
 
+  /** Текущее направление змейки человека (для правил очереди 5.1.1). */
+  protected abstract direction(state: S): Direction
+
+  /** Разыграть один тик: движок + ход из очереди. */
+  protected abstract resolveTick(state: S, queue: readonly Direction[]): TickResult<S, E>
+
+  /** Перед отсчётом после паузы в игре (Solo: continueSolo). По умолчанию — ничего. */
+  protected beforeCountdown(state: S): S {
+    return state
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
 
-  /** Нажатие направления: в очередь (5.1.1). На паузе и после конца игры игнорируется. */
+  /** Нажатие направления: в очередь (5.1.1). Работает только во время отсчёта и игры. */
   steer(direction: Direction): void {
     const { phase, queue, state } = this.snapshot
-    if (phase === 'PAUSED' || phase === 'FINISHED') return
-    const next = enqueueDirection(queue, state.players.P1.direction, direction)
+    if (phase !== 'RUNNING' && phase !== 'COUNTDOWN') return
+    const next = enqueueDirection(queue, this.direction(state), direction)
     if (next.length !== queue.length) this.update({ queue: next })
   }
 
   pause(): void {
     const { phase } = this.snapshot
-    if (phase === 'RUNNING' || phase === 'COUNTDOWN') this.update({ phase: 'PAUSED', countdown: 0 })
+    if (phase === 'RUNNING' || phase === 'COUNTDOWN' || phase === 'LIFE_LOST' || phase === 'LEVEL_CLEAR') {
+      this.update({ phase: 'PAUSED', countdown: 0 })
+    }
   }
 
   /** Возобновление — снова с отсчёта 3-2-1 (5.1.2). */
@@ -106,15 +122,20 @@ export class MatchController {
     else this.pause()
   }
 
+  /** Досрочно закрыть экран «LEVEL N CLEAR» (тап). Вспышку удара пропустить нельзя. */
+  skipHold(): void {
+    if (this.snapshot.phase === 'LEVEL_CLEAR') this.startCountdown()
+  }
+
   /** Один кадр. Максимум один тик за вызов: отставшая вкладка не «догоняет» пачкой. */
   frame(): void {
-    const now = this.opts.now()
+    const now = this.now()
     const { phase } = this.snapshot
 
     if (phase === 'COUNTDOWN') {
       if (now >= this.countdownEndsAt) {
         // Первый тик — ровно через tickMs после конца отсчёта.
-        this.nextTickAt = this.countdownEndsAt + this.opts.tickMs
+        this.nextTickAt = this.countdownEndsAt + this.tickMs
         this.update({ phase: 'RUNNING', countdown: 0 })
       } else {
         const countdown = Math.ceil((this.countdownEndsAt - now) / 1000)
@@ -123,12 +144,81 @@ export class MatchController {
       return
     }
 
+    if (phase === 'LIFE_LOST' || phase === 'LEVEL_CLEAR') {
+      if (now >= this.holdEndsAt) this.startCountdown()
+      return
+    }
+
     if (phase !== 'RUNNING' || now < this.nextTickAt) return
     this.tick()
     // Накопитель без дрейфа: следующий тик отсчитывается от запланированного, не от фактического.
-    this.nextTickAt += this.opts.tickMs
+    this.nextTickAt += this.tickMs
     // Если кадр опоздал больше чем на тик — пропущенное время не отыгрываем.
-    if (this.nextTickAt <= now) this.nextTickAt = now + this.opts.tickMs
+    if (this.nextTickAt <= now) this.nextTickAt = now + this.tickMs
+  }
+
+  private startCountdown(): void {
+    this.countdownEndsAt = this.now() + this.countdownMs
+    this.update({
+      phase: 'COUNTDOWN',
+      state: this.beforeCountdown(this.snapshot.state),
+      countdown: Math.ceil(this.countdownMs / 1000),
+    })
+  }
+
+  private tick(): void {
+    const tickAt = this.now()
+    const started = performance.now()
+    const { state, queue, ticks } = this.snapshot
+    const result = this.resolveTick(state, queue)
+    if (result.holdMs !== undefined) this.holdEndsAt = tickAt + result.holdMs
+    this.update({
+      state: result.state,
+      events: result.events,
+      // После удара или уровня старые нажатия не относятся к новой позиции.
+      queue: result.phase === 'RUNNING' ? result.queue : [],
+      ticks: ticks + 1,
+      phase: result.phase,
+      lastTickCostMs: performance.now() - started,
+      lastTickAt: tickAt,
+    })
+  }
+
+  protected update(patch: Partial<Snapshot<S, E>>): void {
+    this.snapshot = { ...this.snapshot, ...patch }
+    for (const listener of this.listeners) listener()
+  }
+}
+
+export interface MatchOptions extends TickOptions {
+  maxRounds: number
+  /** Бот за RED (P2), пошаговый. Видит только state на начало тика. */
+  bot: SteppedBot
+  rng?: () => number
+  /** Недопустимый ход бота — баг: в strict-режиме бросаем, иначе правило упора 5.1. */
+  strict?: boolean
+}
+
+/** Матч Duel (раздел 5.1): человек P1 против бота P2. */
+export class MatchController extends TickController<GameState, GameEvent> {
+  private readonly opts: MatchOptions
+  /** Решение бота для конкретного state: генератор, который можно продвигать по кускам. */
+  private pending: {
+    state: GameState
+    steps: Generator<void, Direction, void>
+    move: Direction | null
+    ms: number
+  } | null = null
+  /** Сколько думал бот над последним ходом, мс (для диагностики производительности). */
+  lastBotMs = 0
+
+  constructor(options: MatchOptions) {
+    super(options, createInitialState({ maxRounds: options.maxRounds }))
+    this.opts = options
+  }
+
+  protected direction(state: GameState): Direction {
+    return state.players.P1.direction
   }
 
   /**
@@ -169,36 +259,18 @@ export class MatchController {
     return straightOrClockwise(state, 'P2')
   }
 
-  private startCountdown(): void {
-    this.countdownEndsAt = this.opts.now() + this.opts.countdownMs
-    this.update({ phase: 'COUNTDOWN', countdown: Math.ceil(this.opts.countdownMs / 1000) })
-  }
-
-  private tick(): void {
-    const tickAt = this.opts.now()
-    const started = performance.now()
-    const { state, queue, ticks } = this.snapshot
-
+  protected resolveTick(state: GameState, queue: readonly Direction[]): TickResult<GameState, GameEvent> {
     // Ход бота — строго по state на начало тика, до хода человека (5.1).
     this.prepareBotMove() // досчитать синхронно, если не успели между тиками
     const botMove = this.pending!.move!
     this.pending = null
     const human = takeHumanMove(state, 'P1', queue)
     const result = resolveRound(state, human.move, botMove)
-
-    this.update({
+    return {
       state: result.state,
       events: result.events,
       queue: human.queue,
-      ticks: ticks + 1,
       phase: result.state.status === 'FINISHED' ? 'FINISHED' : 'RUNNING',
-      lastTickCostMs: performance.now() - started,
-      lastTickAt: tickAt,
-    })
-  }
-
-  private update(patch: Partial<MatchSnapshot>): void {
-    this.snapshot = { ...this.snapshot, ...patch }
-    for (const listener of this.listeners) listener()
+    }
   }
 }

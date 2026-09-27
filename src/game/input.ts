@@ -31,17 +31,16 @@ export function lastQueuedDirection(queue: readonly Direction[], current: Direct
 /**
  * Ход без нажатия (5.1): текущее направление, а при упоре в стену — первый
  * допустимый по часовой стрелке от него (UP → RIGHT → DOWN → LEFT).
+ * Общая часть для Duel и Solo: на вход — допустимые ходы и текущее направление.
  */
-export function straightOrClockwise(state: GameState, player: PlayerId): Direction {
-  const legal = getLegalMoves(state, player)
-  const current = state.players[player].direction
+export function straightOrClockwiseFrom(legal: readonly Direction[], current: Direction): Direction {
   const start = CLOCKWISE.indexOf(current)
   for (let i = 0; i < CLOCKWISE.length; i++) {
     const dir = CLOCKWISE[(start + i) % CLOCKWISE.length]
     if (legal.includes(dir)) return dir
   }
   // По 5.2 у игрока всегда есть допустимый ход — сюда не попадаем.
-  throw new Error(`No legal move for ${player}`)
+  throw new Error('No legal move')
 }
 
 /**
@@ -49,12 +48,26 @@ export function straightOrClockwise(state: GameState, player: PlayerId): Directi
  * иначе движение прямо / по часовой у стены. Нажатие в стену отбрасывается, ход —
  * по правилу 5.1, следующий элемент очереди остаётся на следующий тик (5.1.1).
  */
+export function takeMoveFrom(
+  legal: readonly Direction[],
+  current: Direction,
+  queue: readonly Direction[]
+): { move: Direction; queue: Direction[] } {
+  const [next, ...rest] = queue
+  if (next && legal.includes(next)) return { move: next, queue: rest }
+  return { move: straightOrClockwiseFrom(legal, current), queue: rest }
+}
+
+/** 5.1 для игрока Duel. */
+export function straightOrClockwise(state: GameState, player: PlayerId): Direction {
+  return straightOrClockwiseFrom(getLegalMoves(state, player), state.players[player].direction)
+}
+
+/** 5.1.1 для игрока Duel. */
 export function takeHumanMove(
   state: GameState,
   player: PlayerId,
   queue: readonly Direction[]
 ): { move: Direction; queue: Direction[] } {
-  const [next, ...rest] = queue
-  if (next && getLegalMoves(state, player).includes(next)) return { move: next, queue: rest }
-  return { move: straightOrClockwise(state, player), queue: rest }
+  return takeMoveFrom(getLegalMoves(state, player), state.players[player].direction, queue)
 }
