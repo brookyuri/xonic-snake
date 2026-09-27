@@ -1,25 +1,9 @@
 import { memo, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
 import type { Direction, GameState, Owner, PlayerId, Pos } from '../engine/types'
 
-export const FLASH_MS = 300
-
 /** Клетки, захваченные в последнем тике (ключ y*size+x → захватчик). */
 export interface Flash {
   cells: Map<number, PlayerId>
-  lit: boolean
-}
-
-/** Цвета поля — переменные темы из src/theme.css. */
-export const COLOR = {
-  empty: 'var(--c-cell-empty)',
-  p1Territory: 'var(--c-p1-land)',
-  p2Territory: 'var(--c-p2-land)',
-  p1Trail: 'var(--c-p1-trail)',
-  p2Trail: 'var(--c-p2-trail)',
-  p1Head: 'var(--c-p1-head)',
-  p2Head: 'var(--c-p2-head)',
-  p1Flash: 'var(--c-capture)',
-  p2Flash: 'var(--c-capture)',
 }
 
 const ARROW_ROTATION: Record<Direction, number> = { UP: 0, RIGHT: 90, DOWN: 180, LEFT: 270 }
@@ -28,12 +12,12 @@ const PLAYERS: PlayerId[] = ['P1', 'P2']
 interface Props {
   state: GameState
   flash?: Flash | null
-  /** Длительность перехода головы между клетками; 0 — без анимации (схемы в правилах). */
-  moveMs?: number
-  /** Пульсация следа человека, когда он под угрозой. */
+  /** Мигание следа человека, когда он под угрозой. */
   dangerTrail?: boolean
   /** Клетки столкновения на экране конца игры. */
   highlight?: Pos[]
+  /** Рамка показывает полосы «загрузки» (отсчёт 3-2-1). */
+  loading?: boolean
   className?: string
   style?: CSSProperties
   onPointerDown?: PointerEventHandler<HTMLDivElement>
@@ -51,35 +35,45 @@ function cellBox(pos: Pos, size: number): CSSProperties {
   }
 }
 
-interface CellProps {
-  territory: Owner
-  trail: Owner
-  flash: 'NONE' | 'LIT_P1' | 'LIT_P2' | 'FADING'
-  pulsing: boolean
+/** Класс клетки: земля — сплошная заливка, след — штриховка (различаются не только цветом). */
+export function cellClass(territory: Owner, trail: Owner, captured: boolean, danger: boolean): string {
+  if (captured) return 'cell cell-capture'
+  if (trail === 'P1') return danger ? 'cell cell-p1-trail trail-danger' : 'cell cell-p1-trail'
+  if (trail === 'P2') return 'cell cell-p2-trail'
+  if (territory === 'P1') return 'cell cell-p1-land'
+  if (territory === 'P2') return 'cell cell-p2-land'
+  return 'cell'
 }
 
 /**
- * Клетка перерисовывается только когда меняется её содержимое: за тик обычно
+ * Клетка перерисовывается только когда меняется её класс: за тик обычно
  * меняются 2–4 клетки из 225, остальные React пропускает.
  */
-const Cell = memo(function Cell({ territory, trail, flash, pulsing }: CellProps) {
-  let background = COLOR.empty
-  if (trail === 'P1') background = COLOR.p1Trail
-  else if (trail === 'P2') background = COLOR.p2Trail
-  else if (territory === 'P1') background = COLOR.p1Territory
-  else if (territory === 'P2') background = COLOR.p2Territory
-  if (flash === 'LIT_P1') background = COLOR.p1Flash
-  if (flash === 'LIT_P2') background = COLOR.p2Flash
-  const transition = flash === 'FADING' ? `background-color ${FLASH_MS}ms ease-out` : undefined
-  return <div className={pulsing ? 'trail-danger' : undefined} style={{ backgroundColor: background, transition }} />
+const Cell = memo(function Cell({ className }: { className: string }) {
+  return <div className={className} />
 })
+
+/** Пиксельная стрелка 7×7, смотрит вверх; поворот — на кратные 90°, пиксели не размываются. */
+export function PixelArrow({ direction, className = '' }: { direction: Direction; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 7 7"
+      shapeRendering="crispEdges"
+      className={className}
+      style={{ transform: `rotate(${ARROW_ROTATION[direction]}deg)` }}
+      aria-hidden
+    >
+      <path d="M3 0h1v1h1v1h1v1h1v1H5v3H2V4H0V3h1V2h1V1h1z" fill="currentColor" />
+    </svg>
+  )
+}
 
 export function Board({
   state,
   flash,
-  moveMs = 0,
   dangerTrail = false,
   highlight = [],
+  loading = false,
   className = '',
   style,
   onPointerDown,
@@ -91,7 +85,7 @@ export function Board({
 
   return (
     <div
-      className={`relative aspect-square overflow-hidden border border-ts-border ${className}`}
+      className={`board-frame relative aspect-square overflow-hidden ${loading ? 'board-loading' : ''} ${className}`}
       style={style}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -103,59 +97,28 @@ export function Board({
         style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, gridTemplateRows: `repeat(${size}, 1fr)` }}
       >
         {state.board.map((row, y) =>
-          row.map((cell, x) => {
-            const capturer = flash?.cells.get(y * size + x)
-            const flashState: CellProps['flash'] = !capturer
-              ? 'NONE'
-              : flash!.lit
-                ? capturer === 'P1'
-                  ? 'LIT_P1'
-                  : 'LIT_P2'
-                : 'FADING'
-            return (
-              <Cell
-                key={y * size + x}
-                territory={cell.territory}
-                trail={cell.trail}
-                flash={flashState}
-                pulsing={dangerTrail && cell.trail === 'P1'}
-              />
-            )
-          })
+          row.map((cell, x) => (
+            <Cell
+              key={y * size + x}
+              className={cellClass(cell.territory, cell.trail, !!flash?.cells.has(y * size + x), dangerTrail)}
+            />
+          ))
         )}
       </div>
 
       <div className="pointer-events-none absolute inset-0">
-        {PLAYERS.map((id) => {
-          const player = state.players[id]
-          const color = id === 'P1' ? COLOR.p1Head : COLOR.p2Head
-          return (
-            <div
-              key={`head-${id}`}
-              data-head={id}
-              className="absolute left-0 top-0 flex items-center justify-center"
-              style={{
-                ...cellBox(player.head, size),
-                // Линейно на весь тик: голова едет непрерывно, а не прыгает.
-                transition: moveMs > 0 ? `transform ${moveMs}ms linear` : undefined,
-              }}
-            >
-              <div
-                className="flex h-[70%] w-[70%] items-center justify-center rounded-full"
-                style={{ backgroundColor: color, boxShadow: `0 0 6px 1px ${color}` }}
-              >
-                <svg
-                  viewBox="0 0 10 10"
-                  className="h-[70%] w-[70%]"
-                  style={{ transform: `rotate(${ARROW_ROTATION[player.direction]}deg)` }}
-                  aria-hidden
-                >
-                  <path d="M5 1.5 L8.5 7 L5 5.6 L1.5 7 Z" fill="var(--c-head-outline)" />
-                </svg>
-              </div>
+        {PLAYERS.map((id) => (
+          <div
+            key={`head-${id}`}
+            data-head={id}
+            className="absolute left-0 top-0 flex items-center justify-center"
+            style={cellBox(state.players[id].head, size)}
+          >
+            <div className={`head ${id === 'P1' ? 'head-p1' : 'head-p2'}`}>
+              <PixelArrow direction={state.players[id].direction} className="h-[70%] w-[70%]" />
             </div>
-          )
-        })}
+          </div>
+        ))}
 
         {highlight.map((pos, i) => (
           <div
@@ -168,5 +131,25 @@ export function Board({
       </div>
       {children}
     </div>
+  )
+}
+
+/** Легенда под полем: те же заливки и штриховки, что и на поле. */
+export function Legend() {
+  const items = [
+    ['cell-p1-land', 'Your land'],
+    ['cell-p1-trail', 'Your trail'],
+    ['cell-p2-land', 'RED land'],
+    ['cell-p2-trail', 'RED trail'],
+  ]
+  return (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-pixel text-[10px] uppercase text-ts-text2" data-testid="legend">
+      {items.map(([cls, label]) => (
+        <li key={cls} className="flex items-center gap-2">
+          <span className={`cell ${cls} inline-block h-3.5 w-3.5 shrink-0`} aria-hidden />
+          {label}
+        </li>
+      ))}
+    </ul>
   )
 }

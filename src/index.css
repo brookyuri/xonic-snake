@@ -42,6 +42,53 @@ body {
   width: min(100cqw, 100cqh);
 }
 
+/* Поле: рамка 10px, прямые углы, сетка без зазоров; земля — заливка, след — штриховка. */
+.board-frame {
+  border: var(--frame-width) solid var(--c-frame);
+  background: var(--c-cell-empty);
+  box-sizing: border-box;
+}
+/* Маленькие схемы в правилах: та же рамка, но тоньше. */
+.board-mini {
+  --frame-width: 3px;
+}
+.cell {
+  background: var(--c-cell-empty);
+}
+.cell-p1-land {
+  background: var(--c-p1-land);
+}
+.cell-p2-land {
+  background: var(--c-p2-land);
+}
+.cell-p1-trail {
+  background: var(--hatch-p1);
+}
+.cell-p2-trail {
+  background: var(--hatch-p2);
+}
+.cell-capture {
+  background: var(--c-capture);
+}
+
+/* Голова: квадрат 60% клетки с чёрной обводкой 2px, без свечения. */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60%;
+  height: 60%;
+  box-sizing: border-box;
+  border: 2px solid var(--c-head-outline);
+  color: var(--c-head-outline);
+}
+.head-p1 {
+  background: var(--c-p1-head);
+}
+.head-p2 {
+  background: var(--c-p2-head);
+}
+
 /* Строка событий: пиксельный шрифт 10px, заглавные; длинное событие переносится, не обрезается. */
 .event-line {
   font-family: var(--font-pixel);

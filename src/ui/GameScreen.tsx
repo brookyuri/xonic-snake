@@ -8,7 +8,7 @@ import { normalBotSteps } from '../bot/normalBot'
 import { FINAL_SECONDS, formatClock, maxRoundsFor, SPEEDS, timeLeftMs } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
 import { MatchController } from '../game/match'
-import { Board, FLASH_MS, type Flash } from './Board'
+import { Board, Legend, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
@@ -215,15 +215,11 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
     }
     if (captured.size > 0) {
       const id = ++flashId.current
-      setFlash({ cells: captured, lit: true })
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          if (flashId.current === id) setFlash({ cells: captured, lit: false })
-        })
-      )
+      // Захваченные клетки на один тик белые, затем сразу цвет земли — без плавного перехода.
+      setFlash({ cells: captured })
       setTimeout(() => {
         if (flashId.current === id) setFlash(null)
-      }, FLASH_MS + 50)
+      }, tickMs)
     }
 
     if (state.status === 'FINISHED' && !match.current.recorded) {
@@ -267,34 +263,34 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} />}
         <header className="pt-3">
-          <div className="flex items-center gap-2 font-pixel text-[10px]">
-            <span className="w-20 text-ts-blue">BLUE {bluePercent}%</span>
+          <div className="flex items-center gap-2 whitespace-nowrap font-pixel text-[10px]" data-testid="hud">
+            <span className="shrink-0 text-ts-blue">BLUE {bluePercent}%</span>
             <span
               data-testid="timer"
               className={`flex-1 text-center text-xs text-ts-timer ${finalSeconds ? 'timer-final' : ''}`}
             >
               {formatClock(timeLeft)}
             </span>
-            <span className="w-20 text-right text-ts-red">RED {redPercent}%</span>
+            <span className="shrink-0 text-ts-red">RED {redPercent}%</span>
             <button
               type="button"
               aria-label="Pause"
               data-testid="pause"
               disabled={!canSteer}
               onClick={() => controller.pause()}
-              className="-my-2 -mr-2 flex h-11 w-11 items-center justify-center btn text-ts-text"
+              className="-my-2 flex h-11 w-11 shrink-0 items-center justify-center btn text-ts-text"
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-                <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" />
-                <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" />
+              <svg viewBox="0 0 7 7" shapeRendering="crispEdges" className="h-4 w-4" aria-hidden>
+                <path d="M1 1h2v5H1zM4 1h2v5H4z" fill="currentColor" />
               </svg>
             </button>
           </div>
           <div
             data-testid="event-line"
             aria-live="polite"
-            // Высота всегда под две строки — поле не прыгает, когда появляется угроза.
-            className="event-line flex h-10 flex-col items-center justify-center text-center leading-5"
+            // Высота всегда под три строки (угроза + событие, которое может перенестись) —
+            // поле не прыгает.
+            className="event-line flex h-[42px] flex-col items-center justify-center text-center"
           >
             {lines.map((line) => (
               <span key={line} className={line === lines[0] && inDanger ? 'text-ts-danger' : 'text-ts-text2'}>
@@ -304,11 +300,11 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
           </div>
         </header>
 
-        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-2">
+        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
           <Board
             state={state}
             flash={flash}
-            moveMs={running ? tickMs : 0}
+            loading={phase === 'COUNTDOWN'}
             dangerTrail={inDanger}
             highlight={end?.highlight}
             className="board-fit"
@@ -338,6 +334,10 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
               </div>
             )}
           </Board>
+        </div>
+
+        <div className="flex justify-center">
+          <Legend />
         </div>
 
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">

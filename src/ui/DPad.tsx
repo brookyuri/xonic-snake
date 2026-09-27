@@ -1,5 +1,6 @@
 import { OPPOSITE_DIRECTION } from '../engine/constants'
 import type { Direction } from '../engine/types'
+import { PixelArrow } from './Board'
 
 interface Props {
   /** Последнее направление, которое получит змейка (хвост очереди или текущее). */
@@ -8,11 +9,11 @@ interface Props {
   disabled?: boolean
 }
 
-const BUTTONS: { dir: Direction; label: string; area: string }[] = [
-  { dir: 'UP', label: '↑', area: 'up' },
-  { dir: 'LEFT', label: '←', area: 'left' },
-  { dir: 'RIGHT', label: '→', area: 'right' },
-  { dir: 'DOWN', label: '↓', area: 'down' },
+const BUTTONS: { dir: Direction; area: string }[] = [
+  { dir: 'UP', area: 'up' },
+  { dir: 'LEFT', area: 'left' },
+  { dir: 'RIGHT', area: 'right' },
+  { dir: 'DOWN', area: 'down' },
 ]
 
 /**
@@ -30,7 +31,7 @@ export function DPad({ heading, onSteer, disabled = false }: Props) {
         gridTemplateRows: 'repeat(3, 4rem)',
       }}
     >
-      {BUTTONS.map(({ dir, label, area }) => (
+      {BUTTONS.map(({ dir, area }) => (
         <button
           key={dir}
           type="button"
@@ -43,9 +44,9 @@ export function DPad({ heading, onSteer, disabled = false }: Props) {
             onSteer(dir)
           }}
           style={{ gridArea: area }}
-          className="flex h-16 w-16 items-center justify-center btn text-2xl"
+          className="flex h-16 w-16 items-center justify-center btn"
         >
-          {label}
+          <PixelArrow direction={dir} className="h-7 w-7" />
         </button>
       ))}
     </div>

@@ -32,7 +32,7 @@ export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLab
         <ol className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
           {STEPS.map((step, i) => (
             <li key={i} className="flex items-center gap-4">
-              <Board state={step.state} className="w-[76px] shrink-0" />
+              <Board state={step.state} className="board-mini w-[76px] shrink-0" />
               <p className="font-mono text-sm leading-snug text-ts-text2">
                 <span className="mr-1 font-semibold text-ts-blue">{i + 1}.</span>
                 {step.text}
