@@ -35,6 +35,9 @@ const KEY_TO_DIRECTION: Record<string, Direction> = {
   D: 'RIGHT',
 }
 
+/** Клетка столкновения мигает 3 раза по 320 мс, потом появляется GAME OVER. */
+const DEATH_BLINK_MS = 960
+
 /** Сколько бот может думать за один кусок между кадрами, мс. */
 const BOT_SLICE_MS = 8
 
@@ -83,6 +86,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   const { state, phase, events, ticks } = snap
 
   const [flash, setFlash] = useState<Flash | null>(null)
+  const [endVisible, setEndVisible] = useState(false)
   const flashId = useRef(0)
   // Одно событие за раз: вместе с угрозой строка событий — максимум две строки.
   const feed = useRef(new MessageFeed(MESSAGE_HOLD_MS, 1))
@@ -213,7 +217,9 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
       if (event.player === 'P1') match.current.captures++
       for (const c of event.cells) captured.set(c.y * BOARD_SIZE + c.x, event.player)
     }
-    if (captured.size > 0) {
+    // Вспышка захвата — эффект, при prefers-reduced-motion не показываем.
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (captured.size > 0 && !reduced) {
       const id = ++flashId.current
       // Захваченные клетки на один тик белые, затем сразу цвет земли — без плавного перехода.
       setFlash({ cells: captured })
@@ -240,6 +246,15 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
       )
     }
   }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Конец партии: сначала мигает клетка столкновения, потом оверлей GAME OVER.
+  useEffect(() => {
+    if (phase !== 'FINISHED') return
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const collision = describeEnd(controller.snapshot.state, controller.snapshot.events).highlight.length > 0
+    const id = setTimeout(() => setEndVisible(true), collision && !reduced ? DEATH_BLINK_MS : 0)
+    return () => clearTimeout(id)
+  }, [phase, controller])
 
   const running = phase === 'RUNNING'
   const now = performance.now()
@@ -358,7 +373,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
           />
         )}
 
-        {end && (
+        {end && endVisible && (
           <GameOverScreen
             title={end.title}
             reason={end.reason}

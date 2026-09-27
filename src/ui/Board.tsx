@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
+import { memo, useLayoutEffect, useRef, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
 import type { Direction, GameState, Owner, PlayerId, Pos } from '../engine/types'
 
 /** Клетки, захваченные в последнем тике (ключ y*size+x → захватчик). */
@@ -45,12 +45,23 @@ export function cellClass(territory: Owner, trail: Owner, captured: boolean, dan
   return 'cell'
 }
 
+/** Период мигания угрозы; должен совпадать с --blink-ms в index.css. */
+const BLINK_MS = 640
+
 /**
  * Клетка перерисовывается только когда меняется её класс: за тик обычно
  * меняются 2–4 клетки из 225, остальные React пропускает.
  */
 const Cell = memo(function Cell({ className }: { className: string }) {
-  return <div className={className} />
+  const ref = useRef<HTMLDivElement>(null)
+  // Клетки следа становятся «под угрозой» в разные тики; отрицательная задержка по общим
+  // часам ставит каждую в одну фазу мигания с остальными.
+  useLayoutEffect(() => {
+    if (ref.current && className.includes('trail-danger')) {
+      ref.current.style.animationDelay = `-${Math.round(performance.now() % BLINK_MS)}ms`
+    }
+  }, [className])
+  return <div ref={ref} className={className} />
 })
 
 /** Пиксельная стрелка 7×7, смотрит вверх; поворот — на кратные 90°, пиксели не размываются. */

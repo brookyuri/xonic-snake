@@ -115,71 +115,86 @@ body {
   cursor: not-allowed;
 }
 
-/* След человека под угрозой. */
-.trail-danger {
-  animation: trail-danger 0.7s ease-in-out infinite;
+/* Период мигания 8-bit (две фазы по 320 мс, без плавности). */
+:root {
+  --blink-ms: 640ms;
 }
 
-@keyframes trail-danger {
-  0%,
-  100% {
-    opacity: 1;
+/* Угроза следу: штриховка ↔ инвертированная штриховка. Задержку ставит Board —
+   все клетки мигают в одной фазе, даже если появились в разные тики. */
+.cell-p1-trail.trail-danger {
+  animation: trail-blink var(--blink-ms) steps(1, end) infinite;
+}
+
+@keyframes trail-blink {
+  0% {
+    background: var(--hatch-p1);
   }
   50% {
-    opacity: 0.3;
+    background: var(--hatch-p1-inverted);
   }
 }
 
-/* Клетка столкновения на экране конца игры. */
-.collision-cell {
-  box-shadow: inset 0 0 0 2px var(--c-text);
-  animation: collision-pulse 0.9s ease-in-out infinite;
+/* Отсчёт: рамка поля с бегущими полосами «загрузки». */
+.board-loading {
+  border-color: transparent;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--c-load-1) 0 5px,
+    var(--c-load-2) 5px 10px,
+    var(--c-load-3) 10px 15px,
+    var(--c-load-4) 15px 20px
+  );
+  background-origin: border-box;
+  background-clip: border-box;
+  animation: load-stripes 0.4s steps(4, end) infinite;
 }
 
-@keyframes collision-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
+@keyframes load-stripes {
+  to {
+    background-position: 0 20px;
   }
 }
 
-/* Отсчёт 3-2-1: одна крупная цифра поверх поля. */
+/* Отсчёт 3-2-1: крупная цифра пиксельным шрифтом, сменяется без анимации. */
 .countdown-number {
   font-family: var(--font-pixel);
   font-size: min(30cqw, 6rem);
   line-height: 1;
   color: var(--c-text);
-  font-variant-numeric: tabular-nums;
-  animation: countdown-pop 0.9s ease-out both;
 }
 
-@keyframes countdown-pop {
-  from {
-    transform: scale(1.35);
-    opacity: 0;
-  }
-  25% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  to {
-    transform: scale(0.92);
-    opacity: 0.85;
-  }
+/* Клетка столкновения: мигает белым/чёрным 3 раза, затем остаётся белая рамка. */
+.collision-cell {
+  box-shadow: inset 0 0 0 3px var(--c-text);
+  animation: collision-blink 320ms steps(1, end) 3;
 }
 
-/* Последние 10 секунд матча. */
-.timer-final {
-  animation: timer-final 1s ease-in-out infinite;
-}
-
-@keyframes timer-final {
+@keyframes collision-blink {
+  0% {
+    background: var(--c-text);
+    box-shadow: none;
+  }
   50% {
-    opacity: 0.55;
+    background: var(--c-bg);
+    box-shadow: none;
   }
+}
+
+/* Последние 10 секунд матча: таймер мигает дискретно. */
+.timer-final {
+  animation: timer-blink 1s steps(1, end) infinite;
+}
+
+@keyframes timer-blink {
+  50% {
+    visibility: hidden;
+  }
+}
+
+/* Курсор-блок в меню. */
+.cursor-blink {
+  animation: timer-blink 1s steps(1, end) infinite;
 }
 
 /* Видимый фокус для клавиатуры: жёлтое кольцо 2px. */
@@ -188,19 +203,20 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-/* Меньше движения: без пульсаций и «прыжков», головы переставляются без плавного хода. */
+/* Меньше движения: без миганий и полос; угроза — статичная жёлтая рамка вокруг клеток следа. */
 @media (prefers-reduced-motion: reduce) {
-  .trail-danger,
+  .cell-p1-trail.trail-danger,
   .collision-cell,
   .timer-final,
-  .countdown-number {
+  .cursor-blink,
+  .board-loading {
     animation: none;
   }
-  .trail-danger {
-    outline: 2px solid var(--c-danger);
-    outline-offset: -2px;
+  .cell-p1-trail.trail-danger {
+    box-shadow: inset 0 0 0 2px var(--c-danger);
   }
-  [data-head] {
-    transition: none !important;
+  .board-loading {
+    border-color: var(--c-frame);
+    background: var(--c-cell-empty);
   }
 }
