@@ -9,16 +9,17 @@ export interface Flash {
   lit: boolean
 }
 
+/** Цвета поля — переменные темы из src/theme.css. */
 export const COLOR = {
-  empty: '#0d0d13',
-  p1Territory: '#123a52',
-  p2Territory: '#4a1420',
-  p1Trail: '#22d3ee',
-  p2Trail: '#fb4142',
-  p1Head: '#a5f3fc',
-  p2Head: '#ffc2c8',
-  p1Flash: '#cffafe',
-  p2Flash: '#ffe4e6',
+  empty: 'var(--c-cell-empty)',
+  p1Territory: 'var(--c-p1-land)',
+  p2Territory: 'var(--c-p2-land)',
+  p1Trail: 'var(--c-p1-trail)',
+  p2Trail: 'var(--c-p2-trail)',
+  p1Head: 'var(--c-p1-head)',
+  p2Head: 'var(--c-p2-head)',
+  p1Flash: 'var(--c-capture)',
+  p2Flash: 'var(--c-capture)',
 }
 
 const ARROW_ROTATION: Record<Direction, number> = { UP: 0, RIGHT: 90, DOWN: 180, LEFT: 270 }
@@ -90,7 +91,7 @@ export function Board({
 
   return (
     <div
-      className={`relative aspect-square overflow-hidden rounded-lg border border-neutral-800 ${className}`}
+      className={`relative aspect-square overflow-hidden border border-ts-border ${className}`}
       style={style}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -149,7 +150,7 @@ export function Board({
                   style={{ transform: `rotate(${ARROW_ROTATION[player.direction]}deg)` }}
                   aria-hidden
                 >
-                  <path d="M5 1.5 L8.5 7 L5 5.6 L1.5 7 Z" fill="#0d0d13" />
+                  <path d="M5 1.5 L8.5 7 L5 5.6 L1.5 7 Z" fill="var(--c-head-outline)" />
                 </svg>
               </div>
             </div>
@@ -160,7 +161,7 @@ export function Board({
           <div
             key={`hit-${i}`}
             data-collision
-            className="collision-cell absolute left-0 top-0 rounded-sm"
+            className="collision-cell absolute left-0 top-0"
             style={cellBox(pos, size)}
           />
         ))}

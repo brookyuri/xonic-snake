@@ -268,21 +268,21 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} />}
         <header className="pt-3">
           <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
-            <span className="w-20 text-cyan-300">BLUE {bluePercent}%</span>
+            <span className="w-20 text-ts-blue">BLUE {bluePercent}%</span>
             <span
               data-testid="timer"
-              className={`flex-1 text-center text-lg tabular-nums ${finalSeconds ? 'timer-final text-red-300' : 'text-neutral-300'}`}
+              className={`flex-1 text-center text-lg tabular-nums ${finalSeconds ? 'timer-final text-ts-red' : 'text-ts-text2'}`}
             >
               {formatClock(timeLeft)}
             </span>
-            <span className="w-20 text-right text-red-300">RED {redPercent}%</span>
+            <span className="w-20 text-right text-ts-red">RED {redPercent}%</span>
             <button
               type="button"
               aria-label="Pause"
               data-testid="pause"
               disabled={!canSteer}
               onClick={() => controller.pause()}
-              className="-my-2 -mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-neutral-300 active:bg-neutral-800 disabled:opacity-40"
+              className="-my-2 -mr-2 flex h-11 w-11 items-center justify-center btn text-ts-text"
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
                 <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" />
@@ -297,7 +297,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
             className="event-line flex h-10 flex-col items-center justify-center text-center leading-5"
           >
             {lines.map((line) => (
-              <span key={line} className={line === lines[0] && inDanger ? 'text-amber-300' : 'text-neutral-300'}>
+              <span key={line} className={line === lines[0] && inDanger ? 'text-ts-danger' : 'text-ts-text2'}>
                 {line}
               </span>
             ))}
@@ -331,7 +331,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
             }}
           >
             {phase === 'COUNTDOWN' && snap.countdown > 0 && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ts-scrim">
                 <span key={snap.countdown} data-testid="countdown" className="countdown-number">
                   {snap.countdown}
                 </span>
@@ -383,7 +383,7 @@ function PerfPanel({ summary }: { summary: ReturnType<typeof summarizePerf> }) {
   return (
     <div
       data-testid="perf-panel"
-      className="pointer-events-none absolute left-2 top-1 z-10 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] leading-tight text-lime-300"
+      className="pointer-events-none absolute left-2 top-1 z-10 bg-ts-bg px-1.5 py-0.5 font-mono text-[10px] leading-tight text-ts-text"
     >
       tick {summary.avgInterval}ms · late {summary.lateTicksPct}% · p95 {summary.p95Work}ms · n {summary.ticks}
     </div>

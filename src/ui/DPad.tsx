@@ -43,7 +43,7 @@ export function DPad({ heading, onSteer, disabled = false }: Props) {
             onSteer(dir)
           }}
           style={{ gridArea: area }}
-          className="flex h-16 w-16 items-center justify-center rounded-xl bg-neutral-800 text-2xl text-neutral-100 transition-transform duration-100 active:scale-95 active:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-16 w-16 items-center justify-center btn text-2xl"
         >
           {label}
         </button>

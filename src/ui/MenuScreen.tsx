@@ -25,8 +25,8 @@ function Segmented<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-neutral-400">{label}</div>
-      <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-xl bg-neutral-900 p-1">
+      <div className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-ts-text2">{label}</div>
+      <div role="radiogroup" aria-label={label} className="flex gap-2">
         {options.map((option) => {
           const selected = option.value === value
           return (
@@ -36,9 +36,8 @@ function Segmented<T extends string>({
               role="radio"
               aria-checked={selected}
               onClick={() => onChange(option.value)}
-              className={`min-h-11 flex-1 rounded-lg text-base transition-colors duration-150 ${
-                selected ? 'bg-neutral-700 font-semibold text-neutral-50' : 'text-neutral-400 active:bg-neutral-800'
-              }`}
+              // Выбранный вариант инвертирован (.btn[aria-checked=true]).
+              className="btn min-h-11 flex-1 text-base"
             >
               {option.label}
             </button>
@@ -66,12 +65,12 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
 
   return (
     <div className="screen">
-      <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-neutral-100">
+      <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-ts-text">
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
           <h1 className="text-center text-4xl font-bold tracking-widest">
-            <span className="text-cyan-300">TERRITORY</span>
+            <span className="text-ts-blue">TERRITORY</span>
             <br />
-            <span className="text-red-300">SNAKE</span>
+            <span className="text-ts-red">SNAKE</span>
           </h1>
         </div>
 
@@ -94,14 +93,14 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           <button
             type="button"
             onClick={onPlay}
-            className="min-h-14 rounded-xl bg-cyan-400 text-lg font-semibold text-neutral-950 active:bg-cyan-300"
+            className="min-h-14 btn text-lg text-ts-timer"
           >
             PLAY VS COMPUTER
           </button>
           <button
             type="button"
             disabled
-            className="min-h-14 rounded-xl bg-neutral-900 text-lg text-neutral-500"
+            className="min-h-14 btn text-lg text-ts-text2"
           >
             PLAY WITH FRIEND
             <span className="block text-xs font-normal uppercase tracking-wider">Coming soon</span>
@@ -109,19 +108,19 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           <button
             type="button"
             onClick={onHowTo}
-            className="min-h-14 rounded-xl bg-neutral-800 text-lg text-neutral-100 active:bg-neutral-700"
+            className="min-h-14 btn text-lg"
           >
             HOW TO PLAY
           </button>
         </div>
 
-        <p className="mt-4 text-center text-sm text-neutral-400" data-testid="stats-line">
+        <p className="mt-4 text-center text-sm text-ts-text2" data-testid="stats-line">
           {formatStatsLine(stats)}
         </p>
         <button
           type="button"
           onClick={async () => setCopyStatus((await copyText(exportStats())) ? 'copied' : 'failed')}
-          className="mx-auto mt-1 min-h-10 px-3 text-xs text-neutral-500 underline underline-offset-2"
+          className="mx-auto mt-1 min-h-10 px-3 text-xs text-ts-text0 underline underline-offset-2"
         >
           {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : 'Export stats'}
         </button>

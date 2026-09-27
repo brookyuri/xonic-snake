@@ -1,0 +1,56 @@
+/*
+ * Тема "8-bit": единственное место, где заданы цвета и шрифты.
+ * Компоненты используют только эти переменные (напрямую или через цвета ts-* в Tailwind).
+ */
+:root {
+  /* Фон, текст */
+  --c-bg: #000000;
+  --c-text: #ffffff;
+  --c-text-2: #d7d7d7;
+
+  /* HUD */
+  --c-hud-blue: #00ffff;
+  --c-hud-timer: #ffff00;
+  --c-hud-red: #ff0000;
+
+  /* Поле */
+  --c-cell-empty: #000000;
+  --c-frame: #0000d7;
+  --frame-width: 10px;
+  --c-p1-land: #00d7d7;
+  --c-p1-trail: #00ffff;
+  --c-p1-head: #ffffff;
+  --c-p2-land: #d70000;
+  --c-p2-trail: #ff0000;
+  --c-p2-head: #ffff00;
+  --c-head-outline: #000000;
+  --c-capture: #ffffff;
+  --c-hatch-gap: #000000;
+
+  /* Штриховка следа: полосы 3px цвета и 2px чёрного под 45°; инверсия — для мигания угрозы */
+  --hatch-p1: repeating-linear-gradient(45deg, var(--c-p1-trail) 0 3px, var(--c-hatch-gap) 3px 5px);
+  --hatch-p1-inverted: repeating-linear-gradient(45deg, var(--c-hatch-gap) 0 3px, var(--c-p1-trail) 3px 5px);
+  --hatch-p2: repeating-linear-gradient(45deg, var(--c-p2-trail) 0 3px, var(--c-hatch-gap) 3px 5px);
+
+  /* Полосы «загрузки» на рамке во время отсчёта */
+  --c-load-1: #0000d7;
+  --c-load-2: #ffff00;
+  --c-load-3: #d70000;
+  --c-load-4: #00ffff;
+
+  /* Кнопки */
+  --c-btn-bg: #000000;
+  --c-btn-fg: #ffffff;
+  --c-btn-border: #d7d7d7;
+  --c-btn-pressed-bg: #d7d7d7;
+  --c-btn-pressed-fg: #000000;
+
+  /* Состояния */
+  --c-focus: #ffff00;
+  --c-danger: #ffff00;
+  --c-scrim: rgba(0, 0, 0, 0.6);
+
+  /* Шрифты */
+  --font-pixel: 'Press Start 2P', ui-monospace, monospace;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}

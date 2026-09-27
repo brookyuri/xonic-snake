@@ -1,3 +1,5 @@
+@import './theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,7 +12,8 @@ body,
 
 body {
   margin: 0;
-  background: #08080c;
+  background: var(--c-bg);
+  color: var(--c-text);
   /* Частые тапы по D-pad: без зума двойным тапом, без выделения текста, без подсветки тапа. */
   touch-action: manipulation;
   user-select: none;
@@ -23,7 +26,7 @@ body {
 .screen {
   height: 100dvh;
   overflow: hidden;
-  background: #0a0a0a;
+  background: var(--c-bg);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
   box-sizing: border-box;
@@ -40,6 +43,23 @@ body {
 /* Строка событий: 14px, на узких экранах до 12px — текст не обрезается. */
 .event-line {
   font-size: clamp(12px, 3.7vw, 14px);
+}
+
+/* Кнопка 8-bit: чёрный фон, рамка 2px, прямые углы; нажатие и выбранный вариант — инверсия. */
+.btn {
+  background: var(--c-btn-bg);
+  color: var(--c-btn-fg);
+  border: 2px solid var(--c-btn-border);
+  border-radius: 0;
+}
+.btn:active:not(:disabled),
+.btn[aria-checked='true'] {
+  background: var(--c-btn-pressed-bg);
+  color: var(--c-btn-pressed-fg);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* След человека под угрозой. */
@@ -59,9 +79,7 @@ body {
 
 /* Клетка столкновения на экране конца игры. */
 .collision-cell {
-  box-shadow:
-    inset 0 0 0 2px #ffffff,
-    0 0 12px 3px rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 0 0 2px var(--c-text);
   animation: collision-pulse 0.9s ease-in-out infinite;
 }
 
@@ -75,15 +93,12 @@ body {
   }
 }
 
-/* Отсчёт 3-2-1: одна крупная цифра поверх поля, каждая заново «выпрыгивает». */
+/* Отсчёт 3-2-1: одна крупная цифра поверх поля. */
 .countdown-number {
   font-size: min(38cqw, 9rem);
   font-weight: 800;
   line-height: 1;
-  color: #f5f5f5;
-  text-shadow:
-    0 0 24px rgba(34, 211, 238, 0.55),
-    0 0 4px rgba(0, 0, 0, 0.8);
+  color: var(--c-text);
   font-variant-numeric: tabular-nums;
   animation: countdown-pop 0.9s ease-out both;
 }
@@ -115,9 +130,9 @@ body {
   }
 }
 
-/* Видимый фокус для клавиатуры. */
+/* Видимый фокус для клавиатуры: жёлтое кольцо 2px. */
 button:focus-visible {
-  outline: 2px solid #67e8f9;
+  outline: 2px solid var(--c-focus);
   outline-offset: 2px;
 }
 
@@ -130,7 +145,7 @@ button:focus-visible {
     animation: none;
   }
   .trail-danger {
-    outline: 2px solid #fbbf24;
+    outline: 2px solid var(--c-danger);
     outline-offset: -2px;
   }
   [data-head] {
