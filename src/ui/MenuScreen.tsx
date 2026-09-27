@@ -72,6 +72,10 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
             <br />
             <span className="text-ts-red">SNAKE</span>
           </h1>
+          <p className="mt-4 font-pixel text-[10px] text-ts-text" aria-hidden>
+            PRESS PLAY
+            <span className="cursor-blink ml-1 inline-block h-[10px] w-[10px] bg-ts-text align-top" />
+          </p>
         </div>
 
         <div className="mb-4 flex flex-col gap-3">

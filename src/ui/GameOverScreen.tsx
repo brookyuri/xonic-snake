@@ -21,7 +21,12 @@ export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayA
   return (
     <div className="absolute inset-0 flex flex-col justify-end bg-ts-scrim" data-testid="game-over">
       <div className="mx-4 mb-4 flex flex-col items-center gap-3 border-2 border-ts-border bg-ts-bg px-4 py-5 text-ts-text">
-        <div className="font-pixel text-2xl">{title}</div>
+        <div className="font-pixel text-xs text-ts-text2">GAME OVER</div>
+        <div
+          className={`font-pixel text-2xl ${title === 'YOU WIN' ? 'text-ts-blue' : title === 'RED WINS' ? 'text-ts-red' : 'text-ts-text'}`}
+        >
+          {title}
+        </div>
         <div className="text-center font-mono text-sm text-ts-text2">{reason}</div>
         <div className="flex gap-6 font-pixel text-[10px]">
           <span className="text-ts-blue">BLUE {bluePercent}%</span>
@@ -31,7 +36,7 @@ export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayA
           <button
             type="button"
             onClick={onPlayAgain}
-            className="min-h-14 flex-1 btn text-sm text-ts-timer"
+            className="min-h-14 flex-1 btn text-[clamp(10px,3.2vw,12px)] text-ts-timer"
           >
             PLAY AGAIN
           </button>
@@ -39,7 +44,7 @@ export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayA
             <button
               type="button"
               onClick={onMenu}
-              className="min-h-14 flex-1 btn text-sm"
+              className="min-h-14 flex-1 btn text-[clamp(10px,3.2vw,12px)]"
             >
               MENU
             </button>
