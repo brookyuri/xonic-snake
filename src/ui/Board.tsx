@@ -66,7 +66,7 @@ const BLINK_MS = 640
  * Клетка перерисовывается только когда меняется её класс: за тик обычно
  * меняются 2–4 клетки из 225, остальные React пропускает.
  */
-const Cell = memo(function Cell({ className }: { className: string }) {
+const CellView = memo(function CellView({ className }: { className: string }) {
   const ref = useRef<HTMLDivElement>(null)
   // Клетки следа становятся «под угрозой» в разные тики; отрицательная задержка по общим
   // часам ставит каждую в одну фазу мигания с остальными.
@@ -77,6 +77,45 @@ const Cell = memo(function Cell({ className }: { className: string }) {
   }, [className])
   return <div ref={ref} className={className} />
 })
+
+/** Какие клетки строки y сейчас во вспышке захвата: строка-ключ вида ",3,4,5". */
+function flashedInRow(flash: Flash | null | undefined, y: number, size: number): string {
+  if (!flash) return ''
+  let key = ''
+  for (let x = 0; x < size; x++) if (flash.cells.has(y * size + x)) key += `,${x}`
+  return key
+}
+
+/**
+ * Строка поля. Движок Solo оставляет неизменённые строки теми же объектами, поэтому
+ * React пропускает строку целиком (за тик обычно меняется одна строка из 20); в Duel
+ * строки копируются каждый раунд — тогда работает memo клеток.
+ */
+const Row = memo(function Row({
+  row,
+  y,
+  flashed,
+  danger,
+}: {
+  row: readonly Cell[]
+  y: number
+  flashed: string
+  danger: boolean
+}) {
+  const size = row.length
+  return (
+    <>
+      {row.map((cell, x) => (
+        <CellView
+          key={y * size + x}
+          className={cellClass(cell.territory, cell.trail, isFlashed(flashed, x), danger)}
+        />
+      ))}
+    </>
+  )
+})
+
+const isFlashed = (flashed: string, x: number) => flashed !== '' && `${flashed},`.includes(`,${x},`)
 
 /** Пиксельная стрелка 7×7, смотрит вверх; поворот — на кратные 90°, пиксели не размываются. */
 export function PixelArrow({ direction, className = '' }: { direction: Direction; className?: string }) {
@@ -123,14 +162,15 @@ export function Board({
         className="grid h-full w-full"
         style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, gridTemplateRows: `repeat(${size}, 1fr)` }}
       >
-        {board.map((row, y) =>
-          row.map((cell, x) => (
-            <Cell
-              key={y * size + x}
-              className={cellClass(cell.territory, cell.trail, !!flash?.cells.has(y * size + x), dangerTrail)}
-            />
-          ))
-        )}
+        {board.map((row, y) => (
+          <Row
+            key={y}
+            row={row}
+            y={y}
+            flashed={flashedInRow(flash, y, size)}
+            danger={dangerTrail && row.some((c) => c.trail === 'P1')}
+          />
+        ))}
       </div>
 
       <div className="pointer-events-none absolute inset-0">
@@ -138,7 +178,7 @@ export function Board({
           <div
             key={`ball-${i}`}
             data-ball
-            className="absolute left-0 top-0 flex items-center justify-center"
+            className="board-piece absolute left-0 top-0 flex items-center justify-center"
             style={cellBox(pos, size)}
           >
             <div className="ball" />
@@ -149,7 +189,7 @@ export function Board({
           <div
             key={`head-${id}`}
             data-head={id}
-            className="absolute left-0 top-0 flex items-center justify-center"
+            className="board-piece absolute left-0 top-0 flex items-center justify-center"
             style={cellBox(pos, size)}
           >
             <div className={`head ${id === 'P1' ? 'head-p1' : 'head-p2'}`}>

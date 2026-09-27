@@ -47,6 +47,12 @@ body {
   border: var(--frame-width) solid var(--c-frame);
   background: var(--c-cell-empty);
   box-sizing: border-box;
+  /* Изменения внутри поля не пересчитывают раскладку и отрисовку остальной страницы. */
+  contain: layout paint;
+}
+/* Головы и шарики — на своих слоях: их шаг не перерисовывает сетку клеток. */
+.board-piece {
+  will-change: transform;
 }
 /* Маленькие схемы в правилах: та же рамка, но тоньше. */
 .board-mini {
