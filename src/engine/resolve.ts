@@ -1,6 +1,7 @@
 import { BOARD_SIZE, DIRECTION_DELTA } from './constants'
 import { getLegalMoves } from './moves'
-import { computeCapture } from './capture'
+import { computeDuelCapture } from './capture'
+import { extendTrail } from './trail'
 import type {
   Direction,
   GameEvent,
@@ -167,7 +168,7 @@ export function resolveRound(
   for (const id of PLAYER_IDS) {
     const onOwnTerritory = state.board[newHead[id].y][newHead[id].x].territory === id
     if (onOwnTerritory && state.players[id].trail.length > 0) {
-      capturedCells[id] = computeCapture(working, id)
+      capturedCells[id] = computeDuelCapture(working, id)
     }
   }
 
@@ -222,14 +223,8 @@ export function resolveRound(
 
   // Шаг 6: обновление следов
   for (const id of PLAYER_IDS) {
-    const head = working.players[id].head
-    const onOwnTerritory = working.board[head.y][head.x].territory === id
-    if (!onOwnTerritory) {
-      if (working.players[id].trail.length === 0) {
-        events.push({ type: 'TRAIL_STARTED', player: id })
-      }
-      working.players[id].trail.push({ ...head })
-      working.board[head.y][head.x].trail = id
+    if (extendTrail(working.board, working.players[id])) {
+      events.push({ type: 'TRAIL_STARTED', player: id })
     }
   }
 

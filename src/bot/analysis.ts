@@ -1,5 +1,5 @@
 import { BOARD_SIZE, DIRECTION_DELTA, OPPOSITE_DIRECTION } from '../engine/constants'
-import { computeCapture } from '../engine/capture'
+import { computeDuelCapture } from '../engine/capture'
 import { getLegalMoves } from '../engine/moves'
 import type { Direction, GameState, PlayerId, Pos } from '../engine/types'
 
@@ -88,7 +88,7 @@ export function isTrailInDanger(state: GameState, player: PlayerId): boolean {
 /** Сколько клеток игрок получит, если его след замкнётся прямо сейчас (раздел 7). */
 export function potentialCapture(state: GameState, player: PlayerId): number {
   if (state.players[player].trail.length === 0) return 0
-  return computeCapture(state, player).length
+  return computeDuelCapture(state, player).length
 }
 
 /** Легальные ходы, которые не ведут немедленно на собственный след. */
