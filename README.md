@@ -2,6 +2,8 @@
 
 A real-time territory duel for the mobile browser. You and the computer each steer a snake on a 15×15 grid: leave your territory to draw a trail, come back to close the loop and capture everything inside, and cut the opponent's trail before they cut yours. The snakes move on their own, one cell per tick and at the same time; you only steer. A match lasts two minutes.
 
+The look is 8-bit: a black screen, a blue board frame, solid land and hatched trails, a pixel font for labels and blinking, step-by-step effects (all off with reduced motion).
+
 Built as a portfolio project and a game-design experiment: the rules are specified up front, the engine is pure and tested, and the bot is explainable.
 
 ## Play

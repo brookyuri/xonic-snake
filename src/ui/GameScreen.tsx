@@ -315,7 +315,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
           </div>
         </header>
 
-        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
+        <div className="board-slot flex min-h-0 flex-1 items-end justify-center py-1">
           <Board
             state={state}
             flash={flash}
