@@ -61,15 +61,16 @@ export function createPerfRecorder(): TickSample[] {
 }
 
 /** JSON, который тестер копирует с экрана конца партии. */
-export function perfReport(summary: PerfSummary, settings: { speed: string; difficulty: string }): string {
+export function perfReport(summary: PerfSummary, settings: { mode: string; speed: string; difficulty: string }): string {
   return JSON.stringify(
     {
       userAgent: navigator.userAgent,
       screen: `${screen.width}x${screen.height}`,
       devicePixelRatio: window.devicePixelRatio,
       hardwareConcurrency: navigator.hardwareConcurrency ?? null,
+      mode: settings.mode,
       speed: settings.speed,
-      difficulty: settings.difficulty,
+      difficulty: settings.mode === 'duel' ? settings.difficulty : null,
       ...summary,
     },
     null,

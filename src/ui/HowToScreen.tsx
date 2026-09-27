@@ -1,38 +1,84 @@
-import { Board, Legend } from './Board'
-import { diagram } from './diagram'
+import { Board, duelHeads, DUEL_LEGEND, Legend, SOLO_LEGEND, type HeadView } from './Board'
+import { diagram, soloDiagram } from './diagram'
+import type { Cell, Pos } from '../engine/types'
+import type { Mode } from './settings'
 
-const STEPS = [
+interface Step {
+  text: string
+  board: Cell[][]
+  heads: HeadView[]
+  balls?: Pos[]
+}
+
+const duel = (rows: string[], directions: Parameters<typeof diagram>[1]) => {
+  const state = diagram(rows, directions)
+  return { board: state.board, heads: duelHeads(state) }
+}
+
+const DUEL_STEPS: Step[] = [
   {
     text: 'Leave home. Moving outside your territory draws a trail behind you.',
-    state: diagram(['.....', '..1..', '..b..', '.BBB.', '.BBB.'], { P1: 'UP', P2: 'DOWN' }),
+    ...duel(['.....', '..1..', '..b..', '.BBB.', '.BBB.'], { P1: 'UP', P2: 'DOWN' }),
   },
   {
     text: 'Come back home to close the loop — the trail and everything inside become yours.',
-    state: diagram(['.bbb.', '.b.b.', '.b.1.', '.BBB.', '.BBB.'], { P1: 'DOWN', P2: 'DOWN' }),
+    ...duel(['.bbb.', '.b.b.', '.b.1.', '.BBB.', '.BBB.'], { P1: 'DOWN', P2: 'DOWN' }),
   },
   {
     text: "Step on RED's trail to win instantly.",
-    state: diagram(['.....', 'rrr2.', '.1...', '.b...', '.B...'], { P1: 'UP', P2: 'RIGHT' }),
+    ...duel(['.....', 'rrr2.', '.1...', '.b...', '.B...'], { P1: 'UP', P2: 'RIGHT' }),
   },
   {
     text: 'Never cross your own trail — you lose.',
-    state: diagram(['.....', '.bbb.', '.b1b.', '.b...', '.B...'], { P1: 'LEFT', P2: 'DOWN' }),
+    ...duel(['.....', '.bbb.', '.b1b.', '.b...', '.B...'], { P1: 'LEFT', P2: 'DOWN' }),
   },
   {
     text: 'Your snake moves by itself — just steer.',
-    state: diagram(['.....', '.bb1.', '.b...', '.B...', '.B...'], { P1: 'RIGHT', P2: 'DOWN' }),
+    ...duel(['.....', '.bb1.', '.b...', '.B...', '.B...'], { P1: 'RIGHT', P2: 'DOWN' }),
   },
 ]
 
-export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLabel: string }) {
+const SOLO_STEPS: Step[] = [
+  {
+    text: 'Leave the frame. Outside your land you draw a trail.',
+    ...soloDiagram(['#####', '#...#', '#.1.#', '#.t.#', '#####'], 'UP', 'trail'),
+  },
+  {
+    text: 'Get back to your land to close the loop — every area without a ball becomes yours.',
+    ...soloDiagram(['#####', '#.o.#', '#tt1#', '#...#', '#####'], 'RIGHT', 'trail'),
+  },
+  {
+    text: 'Balls bounce off your land. If one touches your trail, you lose a life.',
+    ...soloDiagram(['#####', '#...#', '#.1.#', '#ot.#', '#####'], 'UP', 'trail'),
+  },
+  {
+    text: 'Capture 75% of the field to reach the next level — with one more ball.',
+    ...soloDiagram(['#####', '##o.#', '#####', '#####', '##1##'], 'RIGHT', 'land'),
+  },
+]
+
+const FOOTER: Record<Mode, string> = {
+  duel: 'You are BLUE. Most territory after 2 minutes wins.',
+  solo: 'You have 3 lives and no time limit. Your snake moves by itself — just steer.',
+}
+
+export function HowToScreen({ mode, onDone, doneLabel }: { mode: Mode; onDone: () => void; doneLabel: string }) {
+  const steps = mode === 'solo' ? SOLO_STEPS : DUEL_STEPS
   return (
     <div className="screen">
       <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 pt-5 text-ts-text">
-        <h1 className="text-center font-pixel text-base">HOW TO PLAY</h1>
+        <h1 className="text-center font-pixel text-base">
+          HOW TO PLAY <span className={mode === 'solo' ? 'text-ts-ball' : 'text-ts-blue'}>{mode === 'solo' ? 'SOLO' : 'DUEL'}</span>
+        </h1>
         <ol className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
-          {STEPS.map((step, i) => (
+          {steps.map((step, i) => (
             <li key={i} className="flex items-center gap-4">
-              <Board state={step.state} className="board-mini w-[76px] shrink-0" />
+              <Board
+                board={step.board}
+                heads={step.heads}
+                balls={step.balls}
+                className="board-mini w-[76px] shrink-0"
+              />
               <p className="font-mono text-sm leading-snug text-ts-text2">
                 <span className="mr-1 font-semibold text-ts-blue">{i + 1}.</span>
                 {step.text}
@@ -41,18 +87,14 @@ export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLab
           ))}
         </ol>
         <div className="mt-3 flex justify-center">
-          <Legend />
+          <Legend items={mode === 'solo' ? SOLO_LEGEND : DUEL_LEGEND} />
         </div>
         <p className="mt-3 text-center font-mono text-sm leading-snug text-ts-text2">
           Swipe on the board, tap the arrows or use arrow keys / WASD.
           <br />
-          You are BLUE. Most territory after 2 minutes wins.
+          {FOOTER[mode]}
         </p>
-        <button
-          type="button"
-          onClick={onDone}
-          className="mt-3 min-h-14 w-full btn text-sm text-ts-timer"
-        >
+        <button type="button" onClick={onDone} className="mt-3 min-h-14 w-full btn text-sm text-ts-timer">
           {doneLabel}
         </button>
       </div>

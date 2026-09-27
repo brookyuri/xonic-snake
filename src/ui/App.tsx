@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { GameScreen } from './GameScreen'
 import { HowToScreen } from './HowToScreen'
 import { MenuScreen } from './MenuScreen'
+import { SoloScreen } from './SoloScreen'
 import { readJSON, writeJSON } from './storage'
 import { loadSettings, saveSettings, type Settings } from './settings'
 
@@ -24,6 +25,7 @@ export function App() {
   if (screen === 'howto') {
     return (
       <HowToScreen
+        mode={settings.mode}
         doneLabel={firstVisit ? "GOT IT — LET'S PLAY" : 'BACK'}
         onDone={() => {
           writeJSON(SEEN_RULES_KEY, true)
@@ -33,7 +35,13 @@ export function App() {
       />
     )
   }
-  if (screen === 'game') return <GameScreen settings={settings} onMenu={() => setScreen('menu')} />
+  if (screen === 'game') {
+    return settings.mode === 'solo' ? (
+      <SoloScreen settings={settings} onMenu={() => setScreen('menu')} />
+    ) : (
+      <GameScreen settings={settings} onMenu={() => setScreen('menu')} />
+    )
+  }
   return (
     <MenuScreen
       settings={settings}

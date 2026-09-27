@@ -26,6 +26,8 @@
   --c-head-outline: #000000;
   --c-capture: #ffffff;
   --c-hatch-gap: #000000;
+  /* Шарик Solo: яркая мадженту — не похожа ни на землю, ни на след */
+  --c-ball: #ff00ff;
 
   /* Штриховка следа: полосы 3px цвета и 2px чёрного под 45°; инверсия — для мигания угрозы */
   --hatch-p1: repeating-linear-gradient(45deg, var(--c-p1-trail) 0 3px, var(--c-hatch-gap) 3px 5px);

@@ -22,7 +22,7 @@ export function contrast(a: string, b: string): number {
 
 describe('8-bit theme contrast (WCAG AA ≥ 4.5:1)', () => {
   const bg = token('c-bg')
-  const textTokens = ['c-text', 'c-text-2', 'c-hud-blue', 'c-hud-timer', 'c-hud-red', 'c-danger', 'c-btn-fg']
+  const textTokens = ['c-text', 'c-text-2', 'c-hud-blue', 'c-hud-timer', 'c-hud-red', 'c-danger', 'c-btn-fg', 'c-ball']
 
   it.each(textTokens)('--%s on the black background', (name) => {
     expect(contrast(token(name), bg)).toBeGreaterThanOrEqual(4.5)

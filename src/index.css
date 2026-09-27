@@ -89,6 +89,26 @@ body {
   background: var(--c-p2-head);
 }
 
+/* Шарик Solo: квадрат 70% клетки мадженты с чёрной обводкой 2px, без свечения. */
+.ball {
+  width: 70%;
+  height: 70%;
+  box-sizing: border-box;
+  background: var(--c-ball);
+  border: 2px solid var(--c-head-outline);
+}
+
+/* Жизни в HUD Solo: целая — заливка цветом земли, потерянная — только рамка. */
+.life {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid var(--c-p1-land);
+}
+.life-full {
+  background: var(--c-p1-land);
+}
+
 /* Строка событий: пиксельный шрифт 10px, заглавные; длинное событие переносится, не обрезается. */
 .event-line {
   font-family: var(--font-pixel);

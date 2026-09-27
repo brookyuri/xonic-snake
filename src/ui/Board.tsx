@@ -1,5 +1,5 @@
 import { memo, useLayoutEffect, useRef, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
-import type { Direction, GameState, Owner, PlayerId, Pos } from '../engine/types'
+import type { Cell, Direction, GameState, Owner, PlayerId, Pos } from '../engine/types'
 
 /** Клетки, захваченные в последнем тике (ключ y*size+x → захватчик). */
 export interface Flash {
@@ -7,10 +7,24 @@ export interface Flash {
 }
 
 const ARROW_ROTATION: Record<Direction, number> = { UP: 0, RIGHT: 90, DOWN: 180, LEFT: 270 }
-const PLAYERS: PlayerId[] = ['P1', 'P2']
+
+/** Голова змейки на поле. */
+export interface HeadView {
+  id: PlayerId
+  pos: Pos
+  direction: Direction
+}
+
+/** Головы Duel: BLUE и RED. */
+export const duelHeads = (state: GameState): HeadView[] =>
+  (['P1', 'P2'] as const).map((id) => ({ id, pos: state.players[id].head, direction: state.players[id].direction }))
 
 interface Props {
-  state: GameState
+  /** Доска любого размера (Duel 15×15, Solo 20×20, схемы в правилах). */
+  board: readonly (readonly Cell[])[]
+  heads: readonly HeadView[]
+  /** Шарики Solo: квадраты поверх клеток, двигаются дискретно. */
+  balls?: readonly Pos[]
   flash?: Flash | null
   /** Мигание следа человека, когда он под угрозой. */
   dangerTrail?: boolean
@@ -80,7 +94,9 @@ export function PixelArrow({ direction, className = '' }: { direction: Direction
 }
 
 export function Board({
-  state,
+  board,
+  heads,
+  balls = [],
   flash,
   dangerTrail = false,
   highlight = [],
@@ -92,7 +108,7 @@ export function Board({
   onPointerUp,
   children,
 }: Props) {
-  const size = state.board.length
+  const size = board.length
 
   return (
     <div
@@ -107,7 +123,7 @@ export function Board({
         className="grid h-full w-full"
         style={{ gridTemplateColumns: `repeat(${size}, 1fr)`, gridTemplateRows: `repeat(${size}, 1fr)` }}
       >
-        {state.board.map((row, y) =>
+        {board.map((row, y) =>
           row.map((cell, x) => (
             <Cell
               key={y * size + x}
@@ -118,15 +134,26 @@ export function Board({
       </div>
 
       <div className="pointer-events-none absolute inset-0">
-        {PLAYERS.map((id) => (
+        {balls.map((pos, i) => (
+          <div
+            key={`ball-${i}`}
+            data-ball
+            className="absolute left-0 top-0 flex items-center justify-center"
+            style={cellBox(pos, size)}
+          >
+            <div className="ball" />
+          </div>
+        ))}
+
+        {heads.map(({ id, pos, direction }) => (
           <div
             key={`head-${id}`}
             data-head={id}
             className="absolute left-0 top-0 flex items-center justify-center"
-            style={cellBox(state.players[id].head, size)}
+            style={cellBox(pos, size)}
           >
             <div className={`head ${id === 'P1' ? 'head-p1' : 'head-p2'}`}>
-              <PixelArrow direction={state.players[id].direction} className="h-[70%] w-[70%]" />
+              <PixelArrow direction={direction} className="h-[70%] w-[70%]" />
             </div>
           </div>
         ))}
@@ -154,13 +181,26 @@ export const DUEL_LEGEND: readonly LegendItem[] = [
   ['cell-p2-trail', 'RED trail'],
 ]
 
-/** Легенда (правила, пауза): те же заливки и штриховки, что и на поле. */
+/** 'ball' — не заливка клетки, а сам шарик на пустой клетке. */
+export const SOLO_LEGEND: readonly LegendItem[] = [
+  ['cell-p1-land', 'Your land'],
+  ['cell-p1-trail', 'Your trail'],
+  ['ball', 'Ball'],
+]
+
+/** Легенда (правила, пауза): те же заливки, штриховки и шарик, что и на поле. */
 export function Legend({ items = DUEL_LEGEND }: { items?: readonly LegendItem[] }) {
   return (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-pixel text-[10px] uppercase text-ts-text2" data-testid="legend">
       {items.map(([cls, label]) => (
         <li key={cls} className="flex items-center gap-2">
-          <span className={`cell ${cls} inline-block h-3.5 w-3.5 shrink-0`} aria-hidden />
+          {cls === 'ball' ? (
+            <span className="cell inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
+              <span className="ball" />
+            </span>
+          ) : (
+            <span className={`cell ${cls} inline-block h-3.5 w-3.5 shrink-0`} aria-hidden />
+          )}
           {label}
         </li>
       ))}

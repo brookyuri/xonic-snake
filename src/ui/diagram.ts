@@ -28,3 +28,31 @@ export function diagram(rows: string[], directions: { P1: Direction; P2: Directi
   })
   return { board, players: { P1: player('P1'), P2: player('P2') }, round: 0, maxRounds: MAX_ROUNDS, status: 'PLAYING' }
 }
+
+/** Схема Solo: '#' земля, 't' след, '1' голова, 'o' шарик, '.' пусто. */
+export interface SoloDiagram {
+  board: Cell[][]
+  heads: { id: 'P1'; pos: Pos; direction: Direction }[]
+  balls: Pos[]
+}
+
+/** headOn — что под головой: своя земля или последняя клетка следа. */
+export function soloDiagram(rows: string[], direction: Direction, headOn: 'land' | 'trail'): SoloDiagram {
+  let head: Pos = { x: -10, y: -10 }
+  const balls: Pos[] = []
+  const board: Cell[][] = rows.map((row, y) =>
+    [...row].map((ch, x) => {
+      const cell: Cell = { territory: 'NONE', trail: 'NONE' }
+      if (ch === '#') cell.territory = 'P1'
+      if (ch === 't') cell.trail = 'P1'
+      if (ch === 'o') balls.push({ x, y })
+      if (ch === '1') {
+        head = { x, y }
+        if (headOn === 'land') cell.territory = 'P1'
+        else cell.trail = 'P1'
+      }
+      return cell
+    })
+  )
+  return { board, heads: [{ id: 'P1', pos: head, direction }], balls }
+}

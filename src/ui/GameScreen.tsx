@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { BOARD_SIZE } from '../engine/constants'
 import { assertInvariants } from '../engine/invariants'
-import type { Direction, GameState, PlayerId } from '../engine/types'
+import type { GameState, PlayerId } from '../engine/types'
 import { isTrailInDanger } from '../bot/analysis'
 import { easyBotSteps } from '../bot/easyBot'
 import { normalBotSteps } from '../bot/normalBot'
 import { FINAL_SECONDS, formatClock, maxRoundsFor, SPEEDS, timeLeftMs } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
 import { MatchController } from '../game/match'
-import { Board, type Flash } from './Board'
+import { Board, DUEL_LEGEND, duelHeads, type Flash } from './Board'
 import { DPad } from './DPad'
+import { CountdownOverlay, EventLine, PauseButton, PerfPanel } from './GameChrome'
 import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
 import { describeEnd } from './endText'
@@ -17,23 +18,8 @@ import { HeldFlag, MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { describeRound, eventLines } from './roundText'
 import type { Settings } from './settings'
 import { markLastGameRematch, recordAbandoned, recordGame, unrecordAbandoned } from './stats'
-import { swipeDirection } from './swipe'
+import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwipe } from './matchHooks'
 import { createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
-
-const KEY_TO_DIRECTION: Record<string, Direction> = {
-  ArrowUp: 'UP',
-  ArrowDown: 'DOWN',
-  ArrowLeft: 'LEFT',
-  ArrowRight: 'RIGHT',
-  w: 'UP',
-  s: 'DOWN',
-  a: 'LEFT',
-  d: 'RIGHT',
-  W: 'UP',
-  S: 'DOWN',
-  A: 'LEFT',
-  D: 'RIGHT',
-}
 
 /** Клетка столкновения мигает 3 раза по 320 мс, потом появляется GAME OVER. */
 const DEATH_BLINK_MS = 960
@@ -95,14 +81,9 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   // Лениво: иначе рекордер (и window.__tsPerf) пересоздавался бы на каждом рендере.
   const [perfSamples] = useState(() => (perfEnabled ? createPerfRecorder() : null))
 
-  // Цикл кадров: контроллер сам решает, пора ли тикать.
-  useEffect(() => {
-    let frame = requestAnimationFrame(function loop() {
-      controller.frame()
-      frame = requestAnimationFrame(loop)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [controller])
+  useFrameLoop(controller)
+  useAutoPause(controller)
+  useMatchKeys(controller)
 
   /**
    * Брошенная партия (RESTART / MENU с паузы, уход со страницы): пишется в ts_games
@@ -153,30 +134,6 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
     }
   }, [abandon, controller])
 
-  // Автопауза при сворачивании вкладки (5.1.2).
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden) controller.pause()
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
-  }, [controller])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const direction = KEY_TO_DIRECTION[event.key]
-      if (direction) {
-        event.preventDefault()
-        controller.steer(direction)
-      } else if (event.key === ' ' || event.key === 'p' || event.key === 'P') {
-        event.preventDefault()
-        controller.togglePause()
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [controller])
-
   // Ход бота на следующий тик считаем после отрисовки текущего — кусками по BOT_SLICE_MS,
   // чтобы между кадрами не было длинных задач. Не успели к тику — контроллер досчитает сам.
   useEffect(() => {
@@ -218,8 +175,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
       for (const c of event.cells) captured.set(c.y * BOARD_SIZE + c.x, event.player)
     }
     // Вспышка захвата — эффект, при prefers-reduced-motion не показываем.
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (captured.size > 0 && !reduced) {
+    if (captured.size > 0 && !prefersReducedMotion()) {
       const id = ++flashId.current
       // Захваченные клетки на один тик белые, затем сразу цвет земли — без плавного перехода.
       setFlash({ cells: captured })
@@ -250,7 +206,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   // Конец партии: сначала мигает клетка столкновения, потом оверлей GAME OVER.
   useEffect(() => {
     if (phase !== 'FINISHED') return
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     const collision = describeEnd(controller.snapshot.state, controller.snapshot.events).highlight.length > 0
     const id = setTimeout(() => setEndVisible(true), collision && !reduced ? DEATH_BLINK_MS : 0)
     return () => clearTimeout(id)
@@ -270,8 +226,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   const heading = lastQueuedDirection(snap.queue, state.players.P1.direction)
   const canSteer = phase === 'RUNNING' || phase === 'COUNTDOWN'
 
-  // Свайп по полю: одно направление на жест, после порога 24px.
-  const swipe = useRef<{ id: number; x: number; y: number; fired: boolean } | null>(null)
+  const swipe = useSwipe(controller)
 
   return (
     <div className="screen">
@@ -287,66 +242,24 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
               {formatClock(timeLeft)}
             </span>
             <span className="shrink-0 text-ts-red">RED {redPercent}%</span>
-            <button
-              type="button"
-              aria-label="Pause"
-              data-testid="pause"
-              disabled={!canSteer}
-              onClick={() => controller.pause()}
-              className="-my-2 flex h-11 w-11 shrink-0 items-center justify-center btn text-ts-text"
-            >
-              <svg viewBox="0 0 7 7" shapeRendering="crispEdges" className="h-4 w-4" aria-hidden>
-                <path d="M1 1h2v5H1zM4 1h2v5H4z" fill="currentColor" />
-              </svg>
-            </button>
+            <PauseButton disabled={!canSteer} onPause={() => controller.pause()} />
           </div>
-          <div
-            data-testid="event-line"
-            aria-live="polite"
-            // Высота всегда под две строки (угроза + одно событие) — поле не прыгает.
-            className="event-line flex h-[28px] flex-col items-center justify-center text-center"
-          >
-            {lines.map((line) => (
-              <span key={line} className={line === lines[0] && inDanger ? 'text-ts-danger' : 'text-ts-text2'}>
-                {line}
-              </span>
-            ))}
-          </div>
+          <EventLine lines={lines} urgent={inDanger} />
         </header>
 
         <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
           <Board
-            state={state}
+            board={state.board}
+            heads={duelHeads(state)}
             flash={flash}
             loading={phase === 'COUNTDOWN'}
             dangerTrail={inDanger}
             highlight={end?.highlight}
             className="board-fit"
             style={{ touchAction: 'none' }}
-            onPointerDown={(e) => {
-              swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, fired: false }
-              e.currentTarget.setPointerCapture?.(e.pointerId)
-            }}
-            onPointerMove={(e) => {
-              const s = swipe.current
-              if (!s || s.id !== e.pointerId || s.fired) return
-              const direction = swipeDirection(e.clientX - s.x, e.clientY - s.y)
-              if (direction) {
-                s.fired = true
-                controller.steer(direction)
-              }
-            }}
-            onPointerUp={() => {
-              swipe.current = null
-            }}
+            {...swipe}
           >
-            {phase === 'COUNTDOWN' && snap.countdown > 0 && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ts-scrim">
-                <span key={snap.countdown} data-testid="countdown" className="countdown-number">
-                  {snap.countdown}
-                </span>
-              </div>
-            )}
+            {phase === 'COUNTDOWN' && <CountdownOverlay value={snap.countdown} />}
           </Board>
         </div>
 
@@ -356,6 +269,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
 
         {phase === 'PAUSED' && (
           <PauseScreen
+            legend={DUEL_LEGEND}
             onResume={() => controller.resume()}
             onRestart={() => {
               abandon()
@@ -371,9 +285,8 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
         {end && endVisible && (
           <GameOverScreen
             title={end.title}
+            titleClass={end.title === 'YOU WIN' ? 'text-ts-blue' : end.title === 'RED WINS' ? 'text-ts-red' : 'text-ts-text'}
             reason={end.reason}
-            bluePercent={bluePercent}
-            redPercent={redPercent}
             onPlayAgain={() => onRestart(true)}
             onMenu={onMenu}
             perfJson={
@@ -381,21 +294,14 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
                 ? () => perfReport(summarizePerf(perfSamples, tickMs), settings)
                 : undefined
             }
-          />
+          >
+            <div className="flex gap-6 font-pixel text-[10px]">
+              <span className="text-ts-blue">BLUE {bluePercent}%</span>
+              <span className="text-ts-red">RED {redPercent}%</span>
+            </div>
+          </GameOverScreen>
         )}
       </div>
-    </div>
-  )
-}
-
-/** ?perf: маленькая полупрозрачная панель поверх HUD. */
-function PerfPanel({ summary }: { summary: ReturnType<typeof summarizePerf> }) {
-  return (
-    <div
-      data-testid="perf-panel"
-      className="pointer-events-none absolute left-2 top-1 z-10 bg-ts-bg px-1.5 py-0.5 font-mono text-[10px] leading-tight text-ts-text"
-    >
-      tick {summary.avgInterval}ms · late {summary.lateTicksPct}% · p95 {summary.p95Work}ms · n {summary.ticks}
     </div>
   )
 }

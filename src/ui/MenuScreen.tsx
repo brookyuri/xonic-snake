@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { exportStats, formatStatsLine, loadStats } from './stats'
 import { copyText } from './clipboard'
-import type { Difficulty, Settings } from './settings'
+import type { Difficulty, Mode, Settings } from './settings'
 import type { Speed } from '../game/config'
 
 interface Props {
@@ -48,6 +48,11 @@ function Segmented<T extends string>({
   )
 }
 
+const MODES: { value: Mode; label: string }[] = [
+  { value: 'duel', label: 'DUEL' },
+  { value: 'solo', label: 'SOLO' },
+]
+
 const DIFFICULTIES: { value: Difficulty; label: string }[] = [
   { value: 'easy', label: 'Easy' },
   { value: 'normal', label: 'Normal' },
@@ -80,11 +85,19 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
 
         <div className="mb-4 flex flex-col gap-3">
           <Segmented
-            label="Difficulty"
-            value={settings.difficulty}
-            options={DIFFICULTIES}
-            onChange={(difficulty) => onSettingsChange({ ...settings, difficulty })}
+            label="Mode"
+            value={settings.mode}
+            options={MODES}
+            onChange={(mode) => onSettingsChange({ ...settings, mode })}
           />
+          {settings.mode === 'duel' && (
+            <Segmented
+              label="Difficulty"
+              value={settings.difficulty}
+              options={DIFFICULTIES}
+              onChange={(difficulty) => onSettingsChange({ ...settings, difficulty })}
+            />
+          )}
           <Segmented
             label="Speed"
             value={settings.speed}
@@ -97,14 +110,16 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           <button
             type="button"
             onClick={onPlay}
+            data-testid="play"
             className="min-h-14 btn text-sm text-ts-timer"
           >
-            PLAY VS COMPUTER
+            {settings.mode === 'solo' ? 'PLAY SOLO' : 'PLAY VS COMPUTER'}
           </button>
           <button
             type="button"
             disabled
-            className="min-h-14 btn text-sm text-ts-text2"
+            // Заглушка «скоро»: на низких экранах (320×568) место нужнее статистике.
+            className="min-h-14 btn text-sm text-ts-text2 [@media(max-height:600px)]:hidden"
           >
             PLAY WITH FRIEND
             <span className="mt-1 block text-[10px] uppercase">Coming soon</span>
