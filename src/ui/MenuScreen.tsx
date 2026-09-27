@@ -25,7 +25,7 @@ function Segmented<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-ts-text2">{label}</div>
+      <div className="mb-2 font-pixel text-[10px] uppercase text-ts-text2">{label}</div>
       <div role="radiogroup" aria-label={label} className="flex gap-2">
         {options.map((option) => {
           const selected = option.value === value
@@ -37,7 +37,7 @@ function Segmented<T extends string>({
               aria-checked={selected}
               onClick={() => onChange(option.value)}
               // Выбранный вариант инвертирован (.btn[aria-checked=true]).
-              className="btn min-h-11 flex-1 text-base"
+              className="btn min-h-11 flex-1 text-xs"
             >
               {option.label}
             </button>
@@ -67,7 +67,7 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
     <div className="screen">
       <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-ts-text">
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
-          <h1 className="text-center text-4xl font-bold tracking-widest">
+          <h1 className="text-center font-pixel text-[clamp(20px,7vw,32px)] leading-snug">
             <span className="text-ts-blue">TERRITORY</span>
             <br />
             <span className="text-ts-red">SNAKE</span>
@@ -93,34 +93,34 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           <button
             type="button"
             onClick={onPlay}
-            className="min-h-14 btn text-lg text-ts-timer"
+            className="min-h-14 btn text-sm text-ts-timer"
           >
             PLAY VS COMPUTER
           </button>
           <button
             type="button"
             disabled
-            className="min-h-14 btn text-lg text-ts-text2"
+            className="min-h-14 btn text-sm text-ts-text2"
           >
             PLAY WITH FRIEND
-            <span className="block text-xs font-normal uppercase tracking-wider">Coming soon</span>
+            <span className="mt-1 block text-[10px] uppercase">Coming soon</span>
           </button>
           <button
             type="button"
             onClick={onHowTo}
-            className="min-h-14 btn text-lg"
+            className="min-h-14 btn text-sm"
           >
             HOW TO PLAY
           </button>
         </div>
 
-        <p className="mt-4 text-center text-sm text-ts-text2" data-testid="stats-line">
+        <p className="mt-4 text-center font-mono text-sm text-ts-text2" data-testid="stats-line">
           {formatStatsLine(stats)}
         </p>
         <button
           type="button"
           onClick={async () => setCopyStatus((await copyText(exportStats())) ? 'copied' : 'failed')}
-          className="mx-auto mt-1 min-h-10 px-3 text-xs text-ts-text0 underline underline-offset-2"
+          className="mx-auto mt-1 min-h-10 px-3 font-mono text-xs text-ts-text2 underline underline-offset-2"
         >
           {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : 'Export stats'}
         </button>

@@ -267,11 +267,11 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} />}
         <header className="pt-3">
-          <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
+          <div className="flex items-center gap-2 font-pixel text-[10px]">
             <span className="w-20 text-ts-blue">BLUE {bluePercent}%</span>
             <span
               data-testid="timer"
-              className={`flex-1 text-center text-lg tabular-nums ${finalSeconds ? 'timer-final text-ts-red' : 'text-ts-text2'}`}
+              className={`flex-1 text-center text-xs text-ts-timer ${finalSeconds ? 'timer-final' : ''}`}
             >
               {formatClock(timeLeft)}
             </span>

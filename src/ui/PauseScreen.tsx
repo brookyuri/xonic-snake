@@ -15,28 +15,28 @@ export function PauseScreen({ onResume, onRestart, onMenu }: Props) {
       data-testid="pause-screen"
     >
       <div className="mx-4 flex w-full max-w-xs flex-col gap-3 border-2 border-ts-border bg-ts-bg p-5">
-        <h2 id="pause-title" className="text-center text-2xl font-bold tracking-widest text-ts-text">
+        <h2 id="pause-title" className="text-center font-pixel text-xl text-ts-text">
           PAUSED
         </h2>
         <button
           type="button"
           autoFocus
           onClick={onResume}
-          className="min-h-14 btn text-lg text-ts-timer"
+          className="min-h-14 btn text-sm text-ts-timer"
         >
           RESUME
         </button>
         <button
           type="button"
           onClick={onRestart}
-          className="min-h-14 btn text-lg"
+          className="min-h-14 btn text-sm"
         >
           RESTART
         </button>
         <button
           type="button"
           onClick={onMenu}
-          className="min-h-14 btn text-lg"
+          className="min-h-14 btn text-sm"
         >
           MENU
         </button>

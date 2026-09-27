@@ -28,19 +28,19 @@ export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLab
   return (
     <div className="screen">
       <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 pt-5 text-ts-text">
-        <h1 className="text-center text-2xl font-bold tracking-widest">HOW TO PLAY</h1>
+        <h1 className="text-center font-pixel text-base">HOW TO PLAY</h1>
         <ol className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
           {STEPS.map((step, i) => (
             <li key={i} className="flex items-center gap-4">
               <Board state={step.state} className="w-[76px] shrink-0" />
-              <p className="text-[15px] leading-snug text-ts-text2">
+              <p className="font-mono text-sm leading-snug text-ts-text2">
                 <span className="mr-1 font-semibold text-ts-blue">{i + 1}.</span>
                 {step.text}
               </p>
             </li>
           ))}
         </ol>
-        <p className="mt-3 text-center text-sm leading-snug text-ts-text2">
+        <p className="mt-3 text-center font-mono text-sm leading-snug text-ts-text2">
           Swipe on the board, tap the arrows or use arrow keys / WASD.
           <br />
           You are BLUE. Most territory after 2 minutes wins.
@@ -48,7 +48,7 @@ export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLab
         <button
           type="button"
           onClick={onDone}
-          className="mt-3 min-h-14 w-full btn text-lg text-ts-timer"
+          className="mt-3 min-h-14 w-full btn text-sm text-ts-timer"
         >
           {doneLabel}
         </button>

@@ -11,6 +11,7 @@
     "bench": "vitest run --mode bench src/bot/__tests__/benchmark.test.ts"
   },
   "dependencies": {
+    "@fontsource/press-start-2p": "^5.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
