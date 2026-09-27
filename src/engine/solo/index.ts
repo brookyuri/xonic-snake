@@ -1,0 +1,6 @@
+export * from './types'
+export * from './config'
+export { createSoloState, frameBoard, isFrame, progressOf, spawnBalls } from './state'
+export { moveBall } from './balls'
+export { continueSolo, getLegalMoves, resolveSoloTick } from './resolve'
+export { assertSoloInvariants } from './invariants'
