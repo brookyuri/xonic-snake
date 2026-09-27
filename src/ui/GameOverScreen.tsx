@@ -55,7 +55,7 @@ export function GameOverScreen({ title, reason, bluePercent, redPercent, onPlayA
             type="button"
             data-testid="copy-perf"
             onClick={async () => setPerfCopy((await copyText(perfJson())) ? 'copied' : 'failed')}
-            className="min-h-10 px-3 font-mono text-xs text-ts-text2 underline underline-offset-2"
+            className="min-h-11 px-3 font-mono text-xs text-ts-text2 underline underline-offset-2"
           >
             {perfCopy === 'copied' ? 'Copied' : perfCopy === 'failed' ? 'Copy failed' : 'Copy perf'}
           </button>

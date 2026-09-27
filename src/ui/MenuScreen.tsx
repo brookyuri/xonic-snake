@@ -124,7 +124,7 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
         <button
           type="button"
           onClick={async () => setCopyStatus((await copyText(exportStats())) ? 'copied' : 'failed')}
-          className="mx-auto mt-1 min-h-10 px-3 font-mono text-xs text-ts-text2 underline underline-offset-2"
+          className="mx-auto mt-1 min-h-11 px-3 font-mono text-xs text-ts-text2 underline underline-offset-2"
         >
           {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy failed' : 'Export stats'}
         </button>

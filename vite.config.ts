@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts'],
+    // Тест контраста читает токены темы как текст (theme.css?raw).
+    css: { include: [/theme\.css/] },
     exclude: mode === 'bench' ? configDefaults.exclude : [...configDefaults.exclude, '**/benchmark.test.ts'],
   },
 }))
