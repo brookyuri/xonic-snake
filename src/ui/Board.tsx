@@ -145,14 +145,17 @@ export function Board({
   )
 }
 
-/** Легенда под полем: те же заливки и штриховки, что и на поле. */
-export function Legend() {
-  const items = [
-    ['cell-p1-land', 'Your land'],
-    ['cell-p1-trail', 'Your trail'],
-    ['cell-p2-land', 'RED land'],
-    ['cell-p2-trail', 'RED trail'],
-  ]
+export type LegendItem = readonly [className: string, label: string]
+
+export const DUEL_LEGEND: readonly LegendItem[] = [
+  ['cell-p1-land', 'Your land'],
+  ['cell-p1-trail', 'Your trail'],
+  ['cell-p2-land', 'RED land'],
+  ['cell-p2-trail', 'RED trail'],
+]
+
+/** Легенда (правила, пауза): те же заливки и штриховки, что и на поле. */
+export function Legend({ items = DUEL_LEGEND }: { items?: readonly LegendItem[] }) {
   return (
     <ul className="grid grid-cols-2 gap-x-4 gap-y-1 font-pixel text-[10px] uppercase text-ts-text2" data-testid="legend">
       {items.map(([cls, label]) => (

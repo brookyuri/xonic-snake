@@ -1,11 +1,15 @@
+import { Legend, type LegendItem } from './Board'
+
 interface Props {
+  /** Легенда поля: на игровом экране её нет, поэтому она здесь и в правилах. */
+  legend?: readonly LegendItem[]
   onResume: () => void
   onRestart: () => void
   onMenu: () => void
 }
 
 /** Пауза: поле под затемнением, возврат в игру — снова через отсчёт 3-2-1. */
-export function PauseScreen({ onResume, onRestart, onMenu }: Props) {
+export function PauseScreen({ legend, onResume, onRestart, onMenu }: Props) {
   return (
     <div
       className="absolute inset-0 flex items-center justify-center bg-ts-scrim"
@@ -18,6 +22,9 @@ export function PauseScreen({ onResume, onRestart, onMenu }: Props) {
         <h2 id="pause-title" className="text-center font-pixel text-xl text-ts-text">
           PAUSED
         </h2>
+        <div className="flex justify-center py-1">
+          <Legend items={legend} />
+        </div>
         <button
           type="button"
           autoFocus

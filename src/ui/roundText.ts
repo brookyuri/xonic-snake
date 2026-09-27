@@ -11,10 +11,10 @@ export function describeRound(events: GameEvent[]): string[] {
     if (event.type === 'CAPTURED') {
       if (event.player === 'P1') {
         const stolen = event.stolenFromEnemy > 0 ? ` (${event.stolenFromEnemy} from RED)` : ''
-        lines.push(`You captured ${cells(event.cells.length)}${stolen}`)
+        lines.push(`You +${cells(event.cells.length)}${stolen}`)
       } else {
         const stolen = event.stolenFromEnemy > 0 ? ` (${event.stolenFromEnemy} from you)` : ''
-        lines.push(`RED captured ${cells(event.cells.length)}${stolen}`)
+        lines.push(`RED +${cells(event.cells.length)}${stolen}`)
       }
     }
     if (event.type === 'TRAIL_STARTED' && event.player === 'P2') lines.push('RED left home')
@@ -23,8 +23,9 @@ export function describeRound(events: GameEvent[]): string[] {
 }
 
 /**
- * Строки под HUD: не больше одного события плюс угроза. Угроза важнее и идёт первой,
- * каждая строка — целиком, без многоточия.
+ * Строки под HUD: не больше одного события плюс угроза — всего две строки. Угроза
+ * важнее и идёт первой. Тексты короткие («RED +12 cells (5 from you)» — 26 знаков),
+ * чтобы каждая строка помещалась целиком даже на 320px, без переноса и многоточия.
  */
 export function eventLines(events: readonly string[], inDanger: boolean): string[] {
   const event = events.slice(-1)

@@ -1,4 +1,4 @@
-import { Board } from './Board'
+import { Board, Legend } from './Board'
 import { diagram } from './diagram'
 
 const STEPS = [
@@ -40,6 +40,9 @@ export function HowToScreen({ onDone, doneLabel }: { onDone: () => void; doneLab
             </li>
           ))}
         </ol>
+        <div className="mt-3 flex justify-center">
+          <Legend />
+        </div>
         <p className="mt-3 text-center font-mono text-sm leading-snug text-ts-text2">
           Swipe on the board, tap the arrows or use arrow keys / WASD.
           <br />

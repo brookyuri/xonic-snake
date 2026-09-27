@@ -8,7 +8,7 @@ import { normalBotSteps } from '../bot/normalBot'
 import { FINAL_SECONDS, formatClock, maxRoundsFor, SPEEDS, timeLeftMs } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
 import { MatchController } from '../game/match'
-import { Board, Legend, type Flash } from './Board'
+import { Board, type Flash } from './Board'
 import { DPad } from './DPad'
 import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
@@ -303,9 +303,8 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
           <div
             data-testid="event-line"
             aria-live="polite"
-            // Высота всегда под три строки (угроза + событие, которое может перенестись) —
-            // поле не прыгает.
-            className="event-line flex h-[42px] flex-col items-center justify-center text-center"
+            // Высота всегда под две строки (угроза + одно событие) — поле не прыгает.
+            className="event-line flex h-[28px] flex-col items-center justify-center text-center"
           >
             {lines.map((line) => (
               <span key={line} className={line === lines[0] && inDanger ? 'text-ts-danger' : 'text-ts-text2'}>
@@ -315,7 +314,7 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
           </div>
         </header>
 
-        <div className="board-slot flex min-h-0 flex-1 items-end justify-center py-1">
+        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
           <Board
             state={state}
             flash={flash}
@@ -349,10 +348,6 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
               </div>
             )}
           </Board>
-        </div>
-
-        <div className="flex justify-center">
-          <Legend />
         </div>
 
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">

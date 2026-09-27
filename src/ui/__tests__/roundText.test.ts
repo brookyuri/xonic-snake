@@ -14,7 +14,7 @@ describe('describeRound', () => {
       { type: 'CAPTURED', player: 'P1', cells: cells(4), stolenFromEnemy: 2 },
       { type: 'CAPTURED', player: 'P2', cells: cells(6), stolenFromEnemy: 0 },
     ]
-    expect(describeRound(events)).toEqual(['You captured 4 cells (2 from RED)', 'RED captured 6 cells'])
+    expect(describeRound(events)).toEqual(['You +4 cells (2 from RED)', 'RED +6 cells'])
   })
 
   it('reports RED leaving home but not the human', () => {
@@ -27,14 +27,14 @@ describe('describeRound', () => {
 
   it('uses the singular for one cell', () => {
     expect(describeRound([{ type: 'CAPTURED', player: 'P2', cells: cells(1), stolenFromEnemy: 1 }])).toEqual([
-      'RED captured 1 cell (1 from you)',
+      'RED +1 cell (1 from you)',
     ])
   })
 })
 
 describe('eventLines', () => {
   it('shows at most one event', () => {
-    expect(eventLines(['RED left home', 'RED captured 6 cells'], false)).toEqual(['RED captured 6 cells'])
+    expect(eventLines(['RED left home', 'RED +6 cells'], false)).toEqual(['RED +6 cells'])
   })
 
   it('puts the danger warning first, then one event', () => {
