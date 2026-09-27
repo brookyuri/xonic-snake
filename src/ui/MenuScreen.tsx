@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { exportStats, formatStatsLine, loadStats } from './stats'
+import { exportStats, formatSoloStatsLine, formatStatsLine, loadSoloStats, loadStats } from './stats'
 import { copyText } from './clipboard'
 import type { Difficulty, Mode, Settings } from './settings'
 import type { Speed } from '../game/config'
@@ -66,6 +66,7 @@ const SPEED_OPTIONS: { value: Speed; label: string }[] = [
 
 export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Props) {
   const [stats] = useState(loadStats)
+  const [soloStats] = useState(loadSoloStats)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   return (
@@ -134,7 +135,7 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
         </div>
 
         <p className="mt-4 text-center font-mono text-sm text-ts-text2" data-testid="stats-line">
-          {formatStatsLine(stats)}
+          {settings.mode === 'solo' ? formatSoloStatsLine(soloStats) : formatStatsLine(stats)}
         </p>
         <button
           type="button"

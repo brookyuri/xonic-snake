@@ -14,6 +14,7 @@ import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwip
 import { createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
 import type { Settings } from './settings'
 import { describeSoloTick, levelIntro, progressLabel, soloEndReason } from './soloText'
+import { markLastGameRematch, recordSoloAbandoned, recordSoloGame, unrecordAbandoned } from './stats'
 
 /** Клетка удара мигает 3 раза по 320 мс (как в Duel), потом — отсчёт или GAME OVER. */
 const HIT_BLINK_MS = 960
@@ -28,12 +29,15 @@ interface Props {
 /** Экран Solo. Каждая партия — отдельный SoloMatch с новым key: рестарт сбрасывает всё. */
 export function SoloScreen({ settings, onMenu }: Props) {
   const [matchId, setMatchId] = useState(0)
-  const restart = useCallback(() => setMatchId((id) => id + 1), [])
+  const restart = useCallback((afterFinishedGame: boolean) => {
+    if (afterFinishedGame) markLastGameRematch()
+    setMatchId((id) => id + 1)
+  }, [])
   return <SoloMatch key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} />
 }
 
 interface MatchProps extends Props {
-  onRestart: () => void
+  onRestart: (afterFinishedGame: boolean) => void
 }
 
 function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
@@ -67,12 +71,55 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
   useMatchKeys(controller, skipHold)
   const swipe = useSwipe(controller)
 
-  // Уход со страницы во время партии: на паузу (вернувшись, игрок продолжит с отсчёта).
+  const match = useRef({ startedAt: new Date().toISOString(), captures: 0, recorded: false })
+  const [best, setBest] = useState<{ previousBest: number; newBest: boolean } | null>(null)
+  const record = () => ({
+    startedAt: match.current.startedAt,
+    rounds: controller.snapshot.ticks,
+    level: controller.snapshot.state.level,
+    score: controller.snapshot.state.score,
+    captures: match.current.captures,
+    speed: settings.speed,
+  })
+
+  /**
+   * Брошенная партия (RESTART / MENU с паузы, уход со страницы): в ts_games с reason
+   * ABANDONED. Отсчёт до первого тика и уже записанные партии не пишутся.
+   */
+  const abandon = useCallback((): string | null => {
+    const { ticks: played, phase: now } = controller.snapshot
+    if (played === 0 || now === 'FINISHED' || match.current.recorded) return null
+    match.current.recorded = true
+    return recordSoloAbandoned(record())
+  }, [controller]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Уход со страницы: запись ABANDONED; если вкладка вернулась из bfcache — снимаем её,
+  // партия стоит на паузе (RESUME — через отсчёт 3-2-1). Так же, как в Duel.
+  const bfcacheRecord = useRef<string | null>(null)
   useEffect(() => {
-    const onPageHide = () => controller.pause()
+    const onPageHide = (event: PageTransitionEvent) => {
+      const id = abandon()
+      if (event.persisted) {
+        bfcacheRecord.current = id
+        controller.pause()
+      }
+    }
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      if (bfcacheRecord.current) {
+        unrecordAbandoned(bfcacheRecord.current)
+        bfcacheRecord.current = null
+        match.current.recorded = false
+      }
+      controller.pause()
+    }
     window.addEventListener('pagehide', onPageHide)
-    return () => window.removeEventListener('pagehide', onPageHide)
-  }, [controller])
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [abandon, controller])
 
   // Начало уровня: «LEVEL 2 — 3 BALLS». Лента живёт в ref — перерисовываем сами.
   const [, redraw] = useState(0)
@@ -119,7 +166,9 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
     // Захваченные клетки на один тик белые (не при reduced motion).
     const captured = new Map<number, PlayerId>()
     for (const e of events) {
-      if (e.type === 'CAPTURED') for (const c of e.cells) captured.set(c.y * SOLO_BOARD_SIZE + c.x, 'P1')
+      if (e.type !== 'CAPTURED') continue
+      match.current.captures++
+      for (const c of e.cells) captured.set(c.y * SOLO_BOARD_SIZE + c.x, 'P1')
     }
     if (captured.size > 0 && !prefersReducedMotion()) {
       const id = ++flashId.current
@@ -127,6 +176,11 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
       setTimeout(() => {
         if (flashId.current === id) setFlash(null)
       }, tickMs)
+    }
+
+    if (state.status === 'GAME_OVER' && !match.current.recorded) {
+      match.current.recorded = true
+      setBest(recordSoloGame(record()))
     }
   }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -193,20 +247,40 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
         </div>
 
         {phase === 'PAUSED' && (
-          <PauseScreen legend={SOLO_LEGEND} onResume={() => controller.resume()} onRestart={onRestart} onMenu={onMenu} />
+          <PauseScreen
+            legend={SOLO_LEGEND}
+            onResume={() => controller.resume()}
+            onRestart={() => {
+              abandon()
+              onRestart(false)
+            }}
+            onMenu={() => {
+              abandon()
+              onMenu()
+            }}
+          />
         )}
 
         {phase === 'FINISHED' && endVisible && (
           <GameOverScreen
             title={`LEVEL ${state.level}`}
             reason={soloEndReason(events)}
-            onPlayAgain={onRestart}
+            onPlayAgain={() => onRestart(true)}
             onMenu={onMenu}
             perfJson={perfSamples ? () => perfReport(summarizePerf(perfSamples, tickMs), settings) : undefined}
           >
             <div className="font-pixel text-xs text-ts-timer" data-testid="solo-score">
               SCORE {state.score}
             </div>
+            {best && (
+              <div className="font-pixel text-[10px]" data-testid="solo-best">
+                {best.newBest ? (
+                  <span className="text-ts-ball">NEW BEST!</span>
+                ) : (
+                  <span className="text-ts-text2">BEST {best.previousBest}</span>
+                )}
+              </div>
+            )}
           </GameOverScreen>
         )}
       </div>
