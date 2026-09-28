@@ -126,7 +126,7 @@ describe('ST03 — dead end', () => {
 })
 
 describe('ST04 — a ball enters the trail', () => {
-  it('BALL_HIT: trail removed, snake back at the start, land kept', () => {
+  it('BALL_HIT: trail removed, land kept; continueSolo respawns by 2.1', () => {
     // Захваченный блок 3×3 у левого верхнего угла — должен остаться.
     let g = put(UP_TRAIL, 1, 1, ['###', '###', '###'])
     g = put(g, 10, 18, ['o']) // летит (−1,−1) в клетку следа (9,17)
@@ -144,15 +144,68 @@ describe('ST04 — a ball enters the trail', () => {
     expect(state.lives).toBe(2)
     expect(trailCount(state)).toBe(0)
     expect(state.player.trail).toEqual([])
-    expect(state.player.head).toEqual({ x: 9, y: 19 })
-    expect(state.player.direction).toBe('RIGHT')
     expect(landCount(state)).toBe(land)
+    // На тике потери жизни round не растёт (раздел 7).
+    expect(state.round).toBe(s.round)
     // Шарики остаются где были (после своего шага в этом тике).
-    expect(state.balls.map((b) => b.pos)).toContainEqual({ x: 9, y: 17 })
-    // Дальше — снова PLAYING с тем же полем.
+    expect(state.balls.map((b) => b.pos)).toEqual([
+      { x: 16, y: 4 },
+      { x: 9, y: 17 },
+    ])
+    // Дальше — снова PLAYING с тем же полем. Шарики (16,4) и (9,17): до (9,19) — 2,
+    // до (0,9) — 9, до (10,0) — 6, до (19,10) — 6 → возрождение слева.
     const next = continueSolo(state)
+    assertSoloInvariants(next)
     expect(next.status).toBe('PLAYING')
     expect(next.board).toEqual(state.board)
+    expect(next.player.head).toEqual({ x: 0, y: 9 })
+    expect(next.player.direction).toBe('DOWN')
+  })
+})
+
+describe('ST14 — respawn point (2.1)', () => {
+  /** Состояние сразу после потери жизни с шариками в заданных клетках. */
+  function lostWithBalls(...balls: Pos[]): SoloState {
+    // Шарики задаются напрямую: два шарика могут стоять в одной клетке (раздел 4).
+    const s = soloFromGrid(put(frameGrid(), 9, 19, ['1']), { vel: [], headOn: 'land' })
+    return { ...s, balls: balls.map((pos) => ({ pos, vel: { dx: 1, dy: 1 } })), status: 'LIFE_LOST', lives: 2 }
+  }
+  const respawn = (s: SoloState) => {
+    const next = continueSolo(s)
+    assertSoloInvariants(next)
+    return { head: next.player.head, direction: next.player.direction, trail: next.player.trail }
+  }
+
+  it('a ball at the bottom edge: the farthest middle of a side, not (9,19)', () => {
+    // До (9,19): 2; до (0,9): 9; до (10,0): 17; до (19,10): 9.
+    expect(respawn(lostWithBalls({ x: 9, y: 17 }, { x: 10, y: 17 }))).toEqual({
+      head: { x: 10, y: 0 },
+      direction: 'LEFT',
+      trail: [],
+    })
+  })
+
+  it('each side can win, with its own direction along the frame', () => {
+    expect(respawn(lostWithBalls({ x: 17, y: 2 }, { x: 16, y: 3 })).head).toEqual({ x: 9, y: 19 })
+    // (9,17) и (18,15): до (9,19) — 2, (0,9) — 9, (10,0) — 15, (19,10) — 5.
+    expect(respawn(lostWithBalls({ x: 9, y: 17 }, { x: 18, y: 15 }))).toMatchObject({ head: { x: 10, y: 0 }, direction: 'LEFT' })
+    expect(respawn(lostWithBalls({ x: 17, y: 9 }, { x: 16, y: 10 }))).toMatchObject({ head: { x: 0, y: 9 }, direction: 'DOWN' })
+    expect(respawn(lostWithBalls({ x: 2, y: 9 }, { x: 3, y: 10 }))).toMatchObject({ head: { x: 19, y: 10 }, direction: 'UP' })
+  })
+
+  it('equal distances: the first in the listed order wins', () => {
+    // Шарик в (9,9): до (9,19) — 10, до (0,9) — 9, до (10,0) — 9, до (19,10) — 10 → первая из равных — (9,19).
+    expect(respawn(lostWithBalls({ x: 9, y: 9 }, { x: 9, y: 9 }))).toMatchObject({ head: { x: 9, y: 19 }, direction: 'RIGHT' })
+    // Шарик в (5,5): до (9,19) — 14, до (0,9) — 5, до (10,0) — 5, до (19,10) — 14 → снова (9,19), не (19,10).
+    expect(respawn(lostWithBalls({ x: 5, y: 5 }, { x: 5, y: 5 })).head).toEqual({ x: 9, y: 19 })
+    // Шарик в (14,14): (9,19) — 5, (0,9) — 14, (10,0) — 14, (19,10) — 5 → (0,9), не (10,0).
+    expect(respawn(lostWithBalls({ x: 14, y: 14 }, { x: 14, y: 14 })).head).toEqual({ x: 0, y: 9 })
+  })
+
+  it('a new level still starts at (9,19) RIGHT', () => {
+    const s = createSoloState({ seed: 11, level: 3 })
+    expect(s.player.head).toEqual({ x: 9, y: 19 })
+    expect(s.player.direction).toBe('RIGHT')
   })
 })
 

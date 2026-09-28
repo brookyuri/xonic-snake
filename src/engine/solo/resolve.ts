@@ -5,7 +5,7 @@ import { extendTrail } from '../trail'
 import type { Direction, Pos } from '../types'
 import { moveBall } from './balls'
 import { BALL_STEP_EVERY, LEVEL_TARGET, MAX_LIVES, SOLO_BOARD_SIZE, levelBonus } from './config'
-import { createSoloState, innerLand, isFrame, progressOf, startPlayer } from './state'
+import { createSoloState, innerLand, isFrame, progressOf, respawnPlayer } from './state'
 import type { LifeLostReason, SoloEvent, SoloState } from './types'
 
 /** Те же допустимые ходы, что в Duel (раздел 5.2), на поле 20×20. */
@@ -63,9 +63,11 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
   events.push({ type: 'MOVED', from, to })
 
   const loseLife = (reason: LifeLostReason, at: Pos) => {
-    // След удаляется, захваченная земля остаётся; змейка на старт, шарики где были.
+    // След удаляется, захваченная земля остаётся, шарики где были. Голова остаётся в
+    // клетке удара: в точку возрождения (2.1) змейку ставит continueSolo.
+    // round на тике потери жизни не увеличивается (раздел 7).
     for (const p of player.trail) row(p.y)[p.x].trail = 'NONE'
-    w.player = startPlayer()
+    player.trail = []
     w.lives -= 1
     events.push({ type: 'LIFE_LOST', reason, at: { ...at }, livesLeft: w.lives })
     if (w.lives <= 0) {
@@ -139,14 +141,13 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
 }
 
 /**
- * Продолжение после паузы в игре. TODO(SOLO_RULES v0.1): в контракте раздела 8 нет
- * функции перехода, выбран простейший вариант.
- * - LIFE_LOST: змейка уже на старте (сброс сделан в тике) — просто снова PLAYING.
- * - LEVEL_COMPLETE: новый уровень — доска снова рамка, шариков на один больше,
+ * Продолжение после паузы в игре (раздел 8).
+ * - LIFE_LOST → PLAYING: змейка в точке возрождения по 2.1, поле и шарики те же.
+ * - LEVEL_COMPLETE → новый уровень: доска снова рамка, шариков на один больше,
  *   жизни и очки переносятся.
  */
 export function continueSolo(state: SoloState): SoloState {
-  if (state.status === 'LIFE_LOST') return { ...state, status: 'PLAYING' }
+  if (state.status === 'LIFE_LOST') return { ...state, player: respawnPlayer(state.balls), status: 'PLAYING' }
   if (state.status === 'LEVEL_COMPLETE') {
     return createSoloState({ seed: state.seed, level: state.level + 1, lives: state.lives, score: state.score })
   }

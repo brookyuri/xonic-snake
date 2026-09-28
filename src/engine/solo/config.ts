@@ -6,11 +6,22 @@ export const SOLO_BOARD_SIZE = 20
 /** Внутреннее поле 18×18: прогресс считается только по нему. */
 export const INNER_CELLS = (SOLO_BOARD_SIZE - 2) * (SOLO_BOARD_SIZE - 2)
 
-/** Старт змейки в начале уровня и после потери жизни: вдоль нижней кромки. */
+/** Старт змейки в начале уровня: вдоль нижней кромки. После потери жизни — RESPAWN_POINTS. */
 export const SOLO_START: { head: Pos; direction: Direction } = {
   head: { x: 9, y: SOLO_BOARD_SIZE - 1 },
   direction: 'RIGHT',
 }
+
+/**
+ * Точки возрождения после потери жизни (раздел 2.1): середины сторон рамки, направление —
+ * вдоль рамки по часовой стрелке. Порядок важен: при равенстве берётся первая.
+ */
+export const RESPAWN_POINTS: readonly { head: Pos; direction: Direction }[] = [
+  { head: { x: 9, y: SOLO_BOARD_SIZE - 1 }, direction: 'RIGHT' },
+  { head: { x: 0, y: 9 }, direction: 'DOWN' },
+  { head: { x: 10, y: 0 }, direction: 'LEFT' },
+  { head: { x: SOLO_BOARD_SIZE - 1, y: 10 }, direction: 'UP' },
+]
 
 export const START_LIVES = 3
 export const MAX_LIVES = 5

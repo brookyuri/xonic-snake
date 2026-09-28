@@ -63,7 +63,7 @@ describe('SoloMatchController', () => {
     expect(match.snapshot.state.player.head).toEqual({ x: 10, y: 19 })
   })
 
-  it('LIFE_LOST: flash, then countdown, then play resumes from the start cell', () => {
+  it('LIFE_LOST: flash, then countdown, then play resumes from the respawn point (2.1)', () => {
     const { clock, match, firstTick } = setup(aboutToBeHit())
     const hitAt = firstTick()
     expect(match.snapshot.phase).toBe('LIFE_LOST')
@@ -88,7 +88,9 @@ describe('SoloMatchController', () => {
     expect(match.snapshot.phase).toBe('COUNTDOWN')
     expect(match.snapshot.countdown).toBe(3)
     expect(match.snapshot.state.status).toBe('PLAYING')
-    expect(match.snapshot.state.player.head).toEqual({ x: 9, y: 19 })
+    // Шарики (15,3) и (9,15): дальше всего от них середина левой стороны.
+    expect(match.snapshot.state.player.head).toEqual({ x: 0, y: 9 })
+    expect(match.snapshot.state.player.direction).toBe('DOWN')
 
     clock.add(3000)
     match.frame()
@@ -96,7 +98,7 @@ describe('SoloMatchController', () => {
     clock.add(TICK)
     match.frame()
     expect(match.snapshot.ticks).toBe(2)
-    expect(match.snapshot.state.player.head).toEqual({ x: 10, y: 19 })
+    expect(match.snapshot.state.player.head).toEqual({ x: 0, y: 10 })
     assertSoloInvariants(match.snapshot.state)
   })
 

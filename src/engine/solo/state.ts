@@ -4,6 +4,7 @@ import {
   BALL_MIN_DISTANCE,
   ballsForLevel,
   INNER_CELLS,
+  RESPAWN_POINTS,
   SOLO_BOARD_SIZE,
   SOLO_START,
   START_LIVES,
@@ -23,6 +24,25 @@ export function frameBoard(): Cell[][] {
 
 export function startPlayer(): Player {
   return { id: 'P1', head: { ...SOLO_START.head }, direction: SOLO_START.direction, trail: [], alive: true }
+}
+
+/**
+ * Возрождение (раздел 2.1): из середин сторон рамки — та, у которой расстояние до
+ * ближайшего шарика (по Чебышёву) максимально; при равенстве — первая по порядку.
+ */
+export function respawnPlayer(balls: readonly Ball[]): Player {
+  let best = RESPAWN_POINTS[0]
+  let bestDistance = -1
+  for (const point of RESPAWN_POINTS) {
+    const nearest = Math.min(
+      ...balls.map((b) => Math.max(Math.abs(b.pos.x - point.head.x), Math.abs(b.pos.y - point.head.y)))
+    )
+    if (nearest > bestDistance) {
+      best = point
+      bestDistance = nearest
+    }
+  }
+  return { id: 'P1', head: { ...best.head }, direction: best.direction, trail: [], alive: true }
 }
 
 /** Отдельное зерно на каждый уровень: уровень N одной партии всегда одинаков. */
