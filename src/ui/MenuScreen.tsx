@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { exportStats, formatSoloStatsLine, formatStatsLine, loadSoloStats, loadStats } from './stats'
 import { copyText } from './clipboard'
 import type { Difficulty, Mode, Settings } from './settings'
 import type { Speed } from '../game/config'
+import { preloadPixi, type Theme } from '../render/createRenderer'
 
 interface Props {
   settings: Settings
@@ -11,22 +12,27 @@ interface Props {
   onHowTo: () => void
 }
 
-/** Сегментированный переключатель: радиогруппа с зоной касания 44px на вариант. */
+/**
+ * Сегментированный переключатель: радиогруппа с зоной касания 44px на вариант.
+ * inline — подпись слева в той же строке (компактно, для низких экранов).
+ */
 function Segmented<T extends string>({
   label,
   value,
   options,
   onChange,
+  inline = false,
 }: {
   label: string
   value: T
   options: { value: T; label: string }[]
   onChange: (value: T) => void
+  inline?: boolean
 }) {
   return (
-    <div>
-      <div className="mb-2 font-pixel text-[10px] uppercase text-ts-text2">{label}</div>
-      <div role="radiogroup" aria-label={label} className="flex gap-2">
+    <div className={inline ? 'flex items-center gap-2' : ''}>
+      <div className={`font-pixel text-[10px] uppercase text-ts-text2 ${inline ? 'flex-1' : 'mb-2'}`}>{label}</div>
+      <div role="radiogroup" aria-label={label} className={`flex gap-2 ${inline ? 'w-[60%]' : ''}`}>
         {options.map((option) => {
           const selected = option.value === value
           return (
@@ -58,6 +64,12 @@ const DIFFICULTIES: { value: Difficulty; label: string }[] = [
   { value: 'normal', label: 'Normal' },
 ]
 
+// Временный переключатель темы поля (полный редизайн меню — следующая сессия).
+const THEME_OPTIONS: { value: Theme; label: string }[] = [
+  { value: '1986', label: '1986' },
+  { value: '2026', label: '2026' },
+]
+
 const SPEED_OPTIONS: { value: Speed; label: string }[] = [
   { value: 'slow', label: 'Slow' },
   { value: 'normal', label: 'Normal' },
@@ -69,6 +81,11 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
   const [soloStats] = useState(loadSoloStats)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
 
+  // Тема 2026: чанк Pixi начинает грузиться уже в меню, к PLAY он обычно готов.
+  useEffect(() => {
+    if (settings.theme === '2026') preloadPixi().catch(() => {})
+  }, [settings.theme])
+
   return (
     <div className="screen">
       <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-ts-text">
@@ -78,7 +95,8 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
             <br />
             <span className="text-ts-red">SNAKE</span>
           </h1>
-          <p className="mt-4 font-pixel text-[10px] text-ts-text" aria-hidden>
+          {/* Декоративная строка; на экранах ниже 700px (320×568, 375×667) место нужнее переключателям. */}
+          <p className="mt-4 font-pixel text-[10px] text-ts-text [@media(max-height:700px)]:hidden" aria-hidden>
             PRESS PLAY
             <span className="cursor-blink ml-1 inline-block h-[10px] w-[10px] bg-ts-text align-top" />
           </p>
@@ -104,6 +122,13 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
             value={settings.speed}
             options={SPEED_OPTIONS}
             onChange={(speed) => onSettingsChange({ ...settings, speed })}
+          />
+          <Segmented
+            label="Graphics"
+            value={settings.theme}
+            options={THEME_OPTIONS}
+            onChange={(theme) => onSettingsChange({ ...settings, theme })}
+            inline
           />
         </div>
 
