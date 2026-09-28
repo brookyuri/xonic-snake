@@ -5,6 +5,8 @@ import type { RenderSnapshot } from '../render/types'
 import { diagram, soloDiagram } from './diagram'
 import type { Cell, Pos } from '../engine/types'
 import type { Mode } from './settings'
+import type { Theme } from '../render/createRenderer'
+import { HowTo2026 } from '../ui26/HowTo2026'
 
 interface Step {
   text: string
@@ -73,8 +75,10 @@ const FOOTER: Record<Mode, string> = {
   solo: 'You have 3 lives and no time limit. Your snake moves by itself — just steer.',
 }
 
-export function HowToScreen({ mode, onDone, doneLabel }: { mode: Mode; onDone: () => void; doneLabel: string }) {
+export function HowToScreen({ mode, onDone, doneLabel, theme = '1986' }: { mode: Mode; onDone: () => void; doneLabel: string; theme?: Theme }) {
   const steps = mode === 'solo' ? SOLO_STEPS : DUEL_STEPS
+  // Тема 2026: те же шаги и тексты, схемы — мини-поля в стиле 2026 (статичный SVG).
+  if (theme === '2026') return <HowTo2026 mode={mode} steps={steps} footer={FOOTER[mode]} onDone={onDone} doneLabel={doneLabel} />
   return (
     <div className="screen">
       <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 pt-5 text-ts-text">

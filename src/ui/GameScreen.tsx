@@ -18,6 +18,7 @@ import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
 import { DuelHud2026, EventLine2026 } from '../ui26/Hud2026'
 import { Controls2026 } from '../ui26/Controls2026'
+import { Countdown2026, GameOver2026, Pause2026 } from '../ui26/Overlays2026'
 import { describeEnd } from './endText'
 import { HeldFlag, MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { describeRound, eventLines } from './roundText'
@@ -317,7 +318,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
             style={{ touchAction: 'none' }}
             {...swipe}
           >
-            {phase === 'COUNTDOWN' && <CountdownOverlay value={snap.countdown} />}
+            {phase === 'COUNTDOWN' && (t26 ? <Countdown2026 value={snap.countdown} /> : <CountdownOverlay value={snap.countdown} />)}
           </BoardView>
         </div>
 
@@ -329,7 +330,22 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
         </div>
         )}
 
-        {phase === 'PAUSED' && (
+        {phase === 'PAUSED' && t26 && (
+          <Pause2026
+            mode="duel"
+            onResume={() => controller.resume()}
+            onRestart={() => {
+              abandon()
+              onRestart(false)
+            }}
+            onMenu={() => {
+              abandon()
+              onMenu()
+            }}
+          />
+        )}
+
+        {phase === 'PAUSED' && !t26 && (
           <PauseScreen
             legend={DUEL_LEGEND}
             onResume={() => controller.resume()}
@@ -344,7 +360,23 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
           />
         )}
 
-        {end && endVisible && (
+        {end && endVisible && t26 && (
+          <GameOver2026
+            title={end.title === 'RED WINS' ? 'AI WINS' : end.title}
+            titleColor={end.title === 'YOU WIN' ? 'var(--c26-cyan)' : end.title === 'RED WINS' ? 'var(--c26-red)' : 'var(--c26-text)'}
+            reason={end.reason}
+            onPlayAgain={() => onRestart(true)}
+            onMenu={onMenu}
+            perfJson={perfSamples ? () => perfReport(summarizePerf(perfSamples, tickMs), settings, frames?.summary()) : undefined}
+          >
+            <div className="t26-num flex gap-6 text-lg font-bold">
+              <span className="text-[var(--c26-cyan)]">YOU {bluePercent}%</span>
+              <span className="text-[var(--c26-red)]">AI {redPercent}%</span>
+            </div>
+          </GameOver2026>
+        )}
+
+        {end && endVisible && !t26 && (
           <GameOverScreen
             title={end.title}
             titleClass={end.title === 'YOU WIN' ? 'text-ts-blue' : end.title === 'RED WINS' ? 'text-ts-red' : 'text-ts-text'}

@@ -14,6 +14,7 @@ import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
 import { EventLine2026, SoloHud2026 } from '../ui26/Hud2026'
 import { Controls2026 } from '../ui26/Controls2026'
+import { Countdown2026, GameOver2026, LevelClear2026, Pause2026 } from '../ui26/Overlays2026'
 import { MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwipe } from './matchHooks'
 import { createFrameRecorder, createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
@@ -286,8 +287,11 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
             style={{ touchAction: 'none' }}
             {...swipe}
           >
-            {phase === 'COUNTDOWN' && <CountdownOverlay value={snap.countdown} />}
-            {phase === 'LEVEL_CLEAR' && levelBonus?.type === 'LEVEL_COMPLETE' && (
+            {phase === 'COUNTDOWN' && (t26 ? <Countdown2026 value={snap.countdown} /> : <CountdownOverlay value={snap.countdown} />)}
+            {phase === 'LEVEL_CLEAR' && levelBonus?.type === 'LEVEL_COMPLETE' && t26 && (
+              <LevelClear2026 level={levelBonus.level} bonus={levelBonus.bonus} onSkip={skipHold} />
+            )}
+            {phase === 'LEVEL_CLEAR' && levelBonus?.type === 'LEVEL_COMPLETE' && !t26 && (
               <button
                 type="button"
                 data-testid="level-clear"
@@ -310,7 +314,22 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
         </div>
         )}
 
-        {phase === 'PAUSED' && (
+        {phase === 'PAUSED' && t26 && (
+          <Pause2026
+            mode="solo"
+            onResume={() => controller.resume()}
+            onRestart={() => {
+              abandon()
+              onRestart(false)
+            }}
+            onMenu={() => {
+              abandon()
+              onMenu()
+            }}
+          />
+        )}
+
+        {phase === 'PAUSED' && !t26 && (
           <PauseScreen
             legend={SOLO_LEGEND}
             onResume={() => controller.resume()}
@@ -325,7 +344,30 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
           />
         )}
 
-        {phase === 'FINISHED' && endVisible && (
+        {phase === 'FINISHED' && endVisible && t26 && (
+          <GameOver2026
+            title={`LEVEL ${state.level}`}
+            reason={soloEndReason(events)}
+            onPlayAgain={() => onRestart(true)}
+            onMenu={onMenu}
+            perfJson={perfSamples ? () => perfReport(summarizePerf(perfSamples, tickMs), settings, frames?.summary()) : undefined}
+          >
+            <div className="t26-num text-xl font-bold text-[var(--c26-gold)]" data-testid="solo-score">
+              SCORE {state.score}
+            </div>
+            {best && (
+              <div className="text-sm font-semibold tracking-[0.12em]" data-testid="solo-best">
+                {best.newBest ? (
+                  <span className="text-[var(--c26-magenta-soft)]">NEW BEST!</span>
+                ) : (
+                  <span className="text-[var(--c26-text-muted)]">BEST {best.previousBest}</span>
+                )}
+              </div>
+            )}
+          </GameOver2026>
+        )}
+
+        {phase === 'FINISHED' && endVisible && !t26 && (
           <GameOverScreen
             title={`LEVEL ${state.level}`}
             reason={soloEndReason(events)}

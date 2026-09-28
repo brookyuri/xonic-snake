@@ -61,7 +61,7 @@ export function App() {
   return (
     <>
       {renderScreen()}
-      <Toast toast={toast} onClose={closeToast} />
+      <Toast toast={toast} onClose={closeToast} theme={settings.theme} />
     </>
   )
 
@@ -70,6 +70,7 @@ export function App() {
       return (
         <HowToScreen
           mode={settings.mode}
+          theme={settings.theme}
           doneLabel={firstVisit ? "GOT IT — LET'S PLAY" : 'BACK'}
           onDone={() => {
             writeJSON(SEEN_RULES_KEY, true)
