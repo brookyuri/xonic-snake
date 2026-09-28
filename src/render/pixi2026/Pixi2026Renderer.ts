@@ -78,7 +78,9 @@ export class Pixi2026Renderer implements BoardRenderer {
       height: this.size,
       resolution: this.res,
       autoDensity: true,
-      antialias: true,
+      // Без MSAA: вместе с записью в RenderTexture земли он давал паузы GPU 200–400 мс на
+      // захвате (замер на Intel UHD). При DPR 2 края и так гладкие.
+      antialias: false,
       backgroundAlpha: 0,
       preference: this.preference,
     })

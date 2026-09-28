@@ -1,13 +1,14 @@
-import { Container, FillGradient, Graphics, GraphicsPath } from 'pixi.js'
+import { Container, FillGradient, Graphics, GraphicsPath, Sprite, Texture } from 'pixi.js'
 import type { PlayerId } from '../../engine/types'
 import {
   bodyBase,
+  dashIntervals,
   DIRECTION_ANGLE,
   headRotation,
   interpolateCell,
-  neckPolyline,
   polylineLength,
   dashPolyline,
+  segmentWidth,
   taperRuns,
   type Pt,
 } from '../geometry'
@@ -138,14 +139,58 @@ function buildHead(pal: SnakePalette): { head: Container; tongue: Graphics } {
   return { head, tongue }
 }
 
+/** Слой последнего участка: прямоугольники из белой текстуры (сплошной — один, пунктир — пул). */
+class SegmentLayer {
+  readonly container = new Container()
+  private readonly sprites: Sprite[] = []
+
+  constructor(
+    private readonly color: number,
+    private readonly alpha: number
+  ) {}
+
+  /** Прямоугольник вдоль отрезка: от from до to (px от начала), толщина width. */
+  private piece(i: number, x: number, y: number, angle: number, from: number, to: number, width: number): void {
+    let sprite = this.sprites[i]
+    if (!sprite) {
+      sprite = new Sprite(Texture.WHITE)
+      sprite.anchor.set(0, 0.5)
+      sprite.tint = this.color
+      sprite.alpha = this.alpha
+      this.sprites.push(sprite)
+      this.container.addChild(sprite)
+    }
+    sprite.visible = true
+    sprite.position.set(x + Math.cos(angle) * from, y + Math.sin(angle) * from)
+    sprite.rotation = angle
+    sprite.setSize(to - from, width)
+  }
+
+  /** Отрезок из (x, y) под углом angle длины length; dash — [on, off, phase] или сплошной. */
+  draw(x: number, y: number, angle: number, length: number, width: number, dash?: [number, number, number]): void {
+    let used = 0
+    if (!dash) this.piece(used++, x, y, angle, 0, length, width)
+    else for (const [from, to] of dashIntervals(length, dash[0], dash[1], dash[2])) this.piece(used++, x, y, angle, from, to, width)
+    for (let i = used; i < this.sprites.length; i++) this.sprites[i].visible = false
+  }
+
+  hide(): void {
+    for (const sprite of this.sprites) sprite.visible = false
+  }
+}
+
 /**
- * Одна змея: неподвижная часть тела перестраивается только на тике, последний участок
- * (до интерполированной головы) и голова — на каждом кадре.
+ * Одна змея: неподвижная часть тела перестраивается только на тике. Последний участок —
+ * прямой отрезок до интерполированной головы — это прямоугольники-спрайты: на кадре
+ * меняются только их положение и длина, геометрия не строится. Его концы закрыты
+ * круглым концом неподвижной части и головой. Шея «дома» строится один раз и едет с головой.
  */
 export class SnakeSprite {
   readonly container = new Container()
   private readonly fixed: Graphics[]
-  private readonly moving: Graphics[]
+  private readonly moving: SegmentLayer[]
+  private readonly neck = new Container()
+  private readonly neckLayers: Graphics[]
   private readonly head: Container
   private readonly tongue: Graphics
   private readonly pal: SnakePalette
@@ -170,18 +215,23 @@ export class SnakeSprite {
     // Слои чередуются: неподвижная часть слоя, затем её продолжение — так последний участок
     // не перекрывает кольца и блик соседнего отрезка.
     this.fixed = LAYERS.map(() => new Graphics())
-    this.moving = LAYERS.map(() => new Graphics())
-    LAYERS.forEach((_, i) => this.container.addChild(this.fixed[i], this.moving[i]))
+    this.moving = LAYERS.map((spec) => new SegmentLayer(this.pal[spec.color] as number, spec.alpha))
+    LAYERS.forEach((_, i) => this.container.addChild(this.fixed[i], this.moving[i].container))
+    this.neckLayers = LAYERS.map(() => new Graphics())
+    this.neck.addChild(...this.neckLayers)
     const { head, tongue } = buildHead(this.pal)
     this.head = head
     this.tongue = tongue
-    this.head.scale.set(m.headScale)
-    this.container.addChild(this.head)
+    this.container.addChild(this.neck, this.head)
+    this.setMetrics(m)
   }
 
   setMetrics(m: SnakeMetrics): void {
     this.m = m
     this.head.scale.set(m.headScale)
+    // Шея в своих координатах: от 0.6 клетки позади до головы, ось X — вперёд.
+    for (const g of this.neckLayers) g.clear()
+    drawBody(this.neckLayers, [{ x: -0.6 * m.cell, y: 0 }, { x: 0, y: 0 }], 2, 0, m, this.pal)
     this.baseKey = ''
     if (this.view) this.update(this.view)
   }
@@ -214,19 +264,34 @@ export class SnakeSprite {
     if (!view) return
     const end = interpolateCell(view.prevHead, view.head, alpha, this.m.cell)
     this.angle = headRotation(this.angleFrom, this.angleTo, alpha)
-    for (const g of this.moving) g.clear()
-    if (this.base.length === 0) {
-      // Дома: только голова и короткая шея.
-      drawBody(this.moving, neckPolyline(end, this.angle, this.m.cell), 2, 0, this.m, this.pal)
-    } else {
-      const last = this.base[this.base.length - 1]
-      if (Math.hypot(end.x - last.x, end.y - last.y) > 1e-3) {
-        drawBody(this.moving, [last, end], this.base.length - 1, this.baseDashLength, this.m, this.pal)
-      }
-    }
+    const home = this.base.length === 0
+    this.neck.visible = home
+    this.neck.position.set(end.x, end.y)
+    this.neck.rotation = this.angle
+    this.drawMoving(home ? null : this.base[this.base.length - 1], end)
     this.head.position.set(end.x, end.y)
     this.head.rotation = this.angle
     this.tongue.visible = !this.reducedMotion && (now + this.tonguePhase) % TONGUE_PERIOD_MS < TONGUE_SHOWN_MS
+  }
+
+  /** Последний участок: от конца неподвижной части до интерполированной головы. */
+  private drawMoving(last: Pt | null, end: Pt): void {
+    const length = last ? Math.hypot(end.x - last.x, end.y - last.y) : 0
+    if (!last || length < 1e-3) {
+      for (const layer of this.moving) layer.hide()
+      return
+    }
+    const angle = Math.atan2(end.y - last.y, end.x - last.x)
+    const index = this.base.length - 1
+    LAYERS.forEach((spec, i) => {
+      // Слои «от клетки 1» не рисуются на первом отрезке тела.
+      if (spec.fromCell1 && index === 0) return this.moving[i].hide()
+      const width = segmentWidth(index, 1) * spec.factor * this.m.width + spec.extra * this.m.px
+      const dash: [number, number, number] | undefined = spec.dash
+        ? [spec.dash[0] * this.m.px, spec.dash[1] * this.m.px, this.baseDashLength]
+        : undefined
+      this.moving[i].draw(last.x, last.y, angle, length, width, dash)
+    })
   }
 
   destroy(): void {

@@ -3,6 +3,7 @@ import {
   bodyBase,
   bodyPolyline,
   cellCenter,
+  dashIntervals,
   dashPolyline,
   DIRECTION_ANGLE,
   headRotation,
@@ -163,6 +164,21 @@ describe('dashes: robustness', () => {
         const total = dashes.reduce((sum, d) => sum + polylineLength(d), 0)
         expect(Math.abs(total - (polylineLength(pts) * on) / period)).toBeLessThan(on + 1e-6)
       }
+    }
+  })
+})
+
+describe('dashIntervals (straight moving segment)', () => {
+  it('matches dashPolyline on the same straight line, with any phase', () => {
+    for (const phase of [0, 1, 2.5, 6.9, 13, 40.3]) {
+      const line = [{ x: 0, y: 0 }, { x: 23, y: 0 }]
+      const expected = dashPolyline(line, 2, 5, phase).map((d) => [d[0].x, d[d.length - 1].x])
+      const got = dashIntervals(23, 2, 5, phase)
+      expect(got.length).toBe(expected.length)
+      got.forEach(([a, b], i) => {
+        expect(a).toBeCloseTo(expected[i][0])
+        expect(b).toBeCloseTo(expected[i][1])
+      })
     }
   })
 })

@@ -115,6 +115,23 @@ export function dashPolyline(points: readonly Pt[], on: number, off: number, pha
   return dashes
 }
 
+/**
+ * Пунктир на прямом отрезке длины length: интервалы [от, до] вдоль отрезка, где
+ * (phase + s) mod (on + off) < on. То же правило, что в dashPolyline.
+ */
+export function dashIntervals(length: number, on: number, off: number, phase = 0): [number, number][] {
+  const period = on + off
+  const out: [number, number][] = []
+  // Начало штриха, в который попадает phase, в координатах отрезка (может быть < 0).
+  let start = Math.floor(phase / period) * period - phase
+  for (; start < length; start += period) {
+    const from = Math.max(0, start)
+    const to = Math.min(length, start + on)
+    if (to - from > 1e-7) out.push([from, to])
+  }
+  return out
+}
+
 /** Угол направления (ось y вниз): RIGHT 0, DOWN π/2, LEFT π, UP −π/2. */
 export const DIRECTION_ANGLE: Record<Direction, number> = {
   RIGHT: 0,
