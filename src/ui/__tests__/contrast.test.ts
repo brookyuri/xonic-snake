@@ -38,3 +38,17 @@ describe('8-bit theme contrast (WCAG AA ≥ 4.5:1)', () => {
     console.log(rows.map(([n, hex, c]) => `${n} ${hex}: ${c.toFixed(2)}:1`).join('\n'))
   })
 })
+
+describe('2026 theme contrast (WCAG AA ≥ 4.5:1)', () => {
+  // Цвета текста темы 2026 — на фоне экрана и на заливке панелей (текст стоит и там, и там).
+  const textTokens = ['c26-text', 'c26-text-muted', 'c26-cyan', 'c26-cyan-soft', 'c26-magenta-soft', 'c26-gold', 'c26-red', 'c26-magenta', 'c26-slogan', 'c26-logo-snake']
+  const backgrounds = ['c26-bg', 'c26-panel', 'c26-panel-2']
+
+  it.each(textTokens.flatMap((t) => backgrounds.map((b) => [t, b])))('--%s on --%s', (text, bg) => {
+    expect(contrast(token(text), token(bg))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('reports the values', () => {
+    console.log(textTokens.map((n) => `${n} ${token(n)}: ${backgrounds.map((b) => contrast(token(n), token(b)).toFixed(2)).join(' / ')}`).join('\n'))
+  })
+})
