@@ -27,23 +27,25 @@ const randomSeed = () => Math.floor(Math.random() * 2 ** 32)
 interface Props {
   settings: Settings
   onMenu: () => void
+  /** Поле 2026 не поднялось — App переключает на 1986 и показывает тост. */
+  onRendererFallback: (error: unknown) => void
 }
 
 /** Экран Solo. Каждая партия — отдельный SoloMatch с новым key: рестарт сбрасывает всё. */
-export function SoloScreen({ settings, onMenu }: Props) {
+export function SoloScreen({ settings, onMenu, onRendererFallback }: Props) {
   const [matchId, setMatchId] = useState(0)
   const restart = useCallback((afterFinishedGame: boolean) => {
     if (afterFinishedGame) markLastGameRematch()
     setMatchId((id) => id + 1)
   }, [])
-  return <SoloMatch key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} />
+  return <SoloMatch key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} onRendererFallback={onRendererFallback} />
 }
 
 interface MatchProps extends Props {
   onRestart: (afterFinishedGame: boolean) => void
 }
 
-function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
+function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) {
   const tickMs = SPEEDS[settings.speed]
   const [controller] = useState(() => new SoloMatchController({ tickMs, seed: randomSeed() }))
   const subscribe = useCallback((listener: () => void) => controller.subscribe(listener), [controller])
@@ -235,9 +237,12 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
 
         <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
           <BoardView
+            theme={settings.theme}
             snapshot={boardSnapshot}
             events={events}
             tick={ticks}
+            timing={{ at: snap.lastTickAt, tickMs, running: phase === 'RUNNING' }}
+            onFallback={onRendererFallback}
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}

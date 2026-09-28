@@ -43,23 +43,25 @@ function territoryPercent(state: GameState, player: PlayerId): number {
 interface Props {
   settings: Settings
   onMenu: () => void
+  /** Поле 2026 не поднялось — App переключает на 1986 и показывает тост. */
+  onRendererFallback: (error: unknown) => void
 }
 
 /** Экран игры. Каждый матч — отдельный Match с новым key: рестарт сбрасывает всё. */
-export function GameScreen({ settings, onMenu }: Props) {
+export function GameScreen({ settings, onMenu, onRendererFallback }: Props) {
   const [matchId, setMatchId] = useState(0)
   const restart = useCallback((afterFinishedGame: boolean) => {
     if (afterFinishedGame) markLastGameRematch()
     setMatchId((id) => id + 1)
   }, [])
-  return <Match key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} />
+  return <Match key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} onRendererFallback={onRendererFallback} />
 }
 
 interface MatchProps extends Props {
   onRestart: (afterFinishedGame: boolean) => void
 }
 
-function Match({ settings, onMenu, onRestart }: MatchProps) {
+function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) {
   const tickMs = SPEEDS[settings.speed]
   const [controller] = useState(
     () =>
@@ -262,9 +264,12 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
 
         <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
           <BoardView
+            theme={settings.theme}
             snapshot={boardSnapshot}
             events={events}
             tick={ticks}
+            timing={{ at: snap.lastTickAt, tickMs, running: phase === 'RUNNING' }}
+            onFallback={onRendererFallback}
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}

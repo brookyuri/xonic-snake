@@ -56,3 +56,16 @@
   --font-pixel: 'Press Start 2P', ui-monospace, monospace;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
+
+/*
+ * Тема "2026" (VISUAL_2026.md раздел 2): пока только рамка поля — само поле рисует Pixi
+ * (цвета поля — src/render/pixi2026/palette.ts). Экраны 2026 — следующая сессия.
+ */
+:root {
+  --c26-board-edge: #060b1c;
+  --c26-cyan: #22e5ff;
+  --c26-violet: #7a5cff;
+  --c26-magenta: #ff3df0;
+  --c26-frame: 2px;
+  --c26-chamfer: 14px;
+}

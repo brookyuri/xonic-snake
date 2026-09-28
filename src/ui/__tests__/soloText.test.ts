@@ -42,9 +42,25 @@ describe('settings: mode', () => {
     ;(globalThis as { localStorage?: unknown }).localStorage = storage
     expect(loadSettings().mode).toBe('duel')
     data.set('ts_settings', JSON.stringify({ difficulty: 'normal', speed: 'fast', mode: 'solo' }))
-    expect(loadSettings()).toEqual({ mode: 'solo', difficulty: 'normal', speed: 'fast' })
+    expect(loadSettings()).toEqual({ mode: 'solo', difficulty: 'normal', speed: 'fast', theme: '2026' })
     data.set('ts_settings', JSON.stringify({ mode: 'arcade' }))
     expect(loadSettings().mode).toBe('duel')
+    delete (globalThis as { localStorage?: unknown }).localStorage
+  })
+})
+
+describe('settings: theme', () => {
+  it('defaults to 2026 (also for settings saved before themes existed); keeps 1986; drops junk', () => {
+    const data = new Map<string, string>()
+    const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) }
+    ;(globalThis as { localStorage?: unknown }).localStorage = storage
+    expect(loadSettings().theme).toBe('2026')
+    data.set('ts_settings', JSON.stringify({ mode: 'solo', difficulty: 'easy', speed: 'normal' }))
+    expect(loadSettings().theme).toBe('2026')
+    data.set('ts_settings', JSON.stringify({ mode: 'solo', theme: '1986' }))
+    expect(loadSettings().theme).toBe('1986')
+    data.set('ts_settings', JSON.stringify({ theme: 'neon' }))
+    expect(loadSettings().theme).toBe('2026')
     delete (globalThis as { localStorage?: unknown }).localStorage
   })
 })

@@ -84,7 +84,8 @@ export function HowToScreen({ mode, onDone, doneLabel }: { mode: Mode; onDone: (
         <ol className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
           {steps.map((step, i) => (
             <li key={i} className="flex items-center gap-4">
-              <BoardView snapshot={stepSnapshot(step, mode)} className="board-mini w-[76px] shrink-0" />
+              {/* Схемы правил — пока всегда 1986; экраны 2026 — следующая сессия. */}
+              <BoardView theme="1986" snapshot={stepSnapshot(step, mode)} className="board-mini w-[76px] shrink-0" />
               <p className="font-mono text-sm leading-snug text-ts-text2">
                 <span className="mr-1 font-semibold text-ts-blue">{i + 1}.</span>
                 {step.text}
