@@ -1,4 +1,4 @@
-import type { summarizePerf } from './perf'
+import type { FrameSummary, summarizePerf } from './perf'
 
 /** Кнопка паузы в HUD: 44×44, пиксельная иконка. */
 export function PauseButton({ disabled, onPause }: { disabled: boolean; onPause: () => void }) {
@@ -50,14 +50,20 @@ export function CountdownOverlay({ value }: { value: number }) {
   )
 }
 
-/** ?perf: маленькая полупрозрачная панель поверх HUD. */
-export function PerfPanel({ summary }: { summary: ReturnType<typeof summarizePerf> }) {
+/** ?perf: маленькая полупрозрачная панель поверх HUD; вторая строка — кадры рендерера. */
+export function PerfPanel({ summary, frames }: { summary: ReturnType<typeof summarizePerf>; frames?: FrameSummary }) {
   return (
     <div
       data-testid="perf-panel"
       className="pointer-events-none absolute left-2 top-1 z-10 bg-ts-bg px-1.5 py-0.5 font-mono text-[10px] leading-tight text-ts-text"
     >
       tick {summary.avgInterval}ms · late {summary.lateTicksPct}% · p95 {summary.p95Work}ms · n {summary.ticks}
+      {frames && (
+        <>
+          <br />
+          fps {frames.fps} · frame avg {frames.frameAvg}ms · max {frames.frameMax}ms
+        </>
+      )}
     </div>
   )
 }

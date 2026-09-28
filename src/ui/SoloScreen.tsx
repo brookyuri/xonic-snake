@@ -14,7 +14,8 @@ import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
 import { MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwipe } from './matchHooks'
-import { createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
+import { createFrameRecorder, createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
+import { LateTickMonitor } from './lateTicks'
 import type { Settings } from './settings'
 import { describeSoloTick, levelIntro, progressLabel, soloEndReason } from './soloText'
 import { markLastGameRematch, recordSoloAbandoned, recordSoloGame, unrecordAbandoned } from './stats'
@@ -29,23 +30,25 @@ interface Props {
   onMenu: () => void
   /** Поле 2026 не поднялось — App переключает на 1986 и показывает тост. */
   onRendererFallback: (error: unknown) => void
+  /** Тики опаздывают на теме 2026 — App предлагает перейти на 1986. */
+  onSlowRenderer: () => void
 }
 
 /** Экран Solo. Каждая партия — отдельный SoloMatch с новым key: рестарт сбрасывает всё. */
-export function SoloScreen({ settings, onMenu, onRendererFallback }: Props) {
+export function SoloScreen({ settings, onMenu, onRendererFallback, onSlowRenderer }: Props) {
   const [matchId, setMatchId] = useState(0)
   const restart = useCallback((afterFinishedGame: boolean) => {
     if (afterFinishedGame) markLastGameRematch()
     setMatchId((id) => id + 1)
   }, [])
-  return <SoloMatch key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} onRendererFallback={onRendererFallback} />
+  return <SoloMatch key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} onRendererFallback={onRendererFallback} onSlowRenderer={onSlowRenderer} />
 }
 
 interface MatchProps extends Props {
   onRestart: (afterFinishedGame: boolean) => void
 }
 
-function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) {
+function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer }: MatchProps) {
   const tickMs = SPEEDS[settings.speed]
   const [controller] = useState(() => new SoloMatchController({ tickMs, seed: randomSeed() }))
   const subscribe = useCallback((listener: () => void) => controller.subscribe(listener), [controller])
@@ -69,6 +72,8 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchPro
   const peakLives = useRef(START_LIVES)
   peakLives.current = Math.max(peakLives.current, state.lives)
   const [perfSamples] = useState(() => (perfEnabled ? createPerfRecorder() : null))
+  const [frames] = useState(() => (perfEnabled ? createFrameRecorder() : null))
+  const [lateTicks] = useState(() => new LateTickMonitor(tickMs))
 
   const skipHold = useCallback(() => controller.skipHold(), [controller])
   useFrameLoop(controller)
@@ -139,17 +144,27 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchPro
     ;(window as { __tsMatch?: unknown }).__tsMatch = controller
   }, [controller])
 
-  // ?perf: сколько прошло от начала тика до коммита DOM.
+  // Каждый тик: опоздания (VISUAL_2026.md раздел 5 — тост «перейти на 1986») и ?perf —
+  // сколько прошло от начала тика до коммита DOM.
   useLayoutEffect(() => {
-    if (!perfSamples || ticks === 0) return
-    perfSamples.push({
+    if (ticks === 0) return
+    const counted = lateTicks.tick(snap.lastTickAt)
+    if (phase !== 'RUNNING') lateTicks.pause()
+    if (settings.theme === '2026' && lateTicks.shouldOffer()) onSlowRenderer()
+    perfSamples?.push({
       tick: ticks,
       at: snap.lastTickAt,
       costMs: snap.lastTickCostMs,
       botMs: 0,
       commitMs: performance.now() - snap.lastTickAt,
+      afterBreak: !counted,
     })
   }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Пауза, отсчёт, вспышка удара: интервал через перерыв — не опоздание.
+  useEffect(() => {
+    if (phase !== 'RUNNING') lateTicks.pause()
+  }, [phase, lateTicks])
 
   // Всё, что происходит один раз за тик.
   useEffect(() => {
@@ -227,7 +242,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchPro
   return (
     <div className="screen">
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
-        {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} />}
+        {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} frames={frames?.summary()} />}
         <header className="pt-3">
           <SoloHud state={state} peakLives={peakLives.current}>
             <PauseButton disabled={!canSteer} onPause={() => controller.pause()} />
@@ -243,6 +258,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchPro
             tick={ticks}
             timing={{ at: snap.lastTickAt, tickMs, running: phase === 'RUNNING' }}
             onFallback={onRendererFallback}
+            onFrame={frames?.record}
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}
@@ -288,7 +304,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback }: MatchPro
             reason={soloEndReason(events)}
             onPlayAgain={() => onRestart(true)}
             onMenu={onMenu}
-            perfJson={perfSamples ? () => perfReport(summarizePerf(perfSamples, tickMs), settings) : undefined}
+            perfJson={perfSamples ? () => perfReport(summarizePerf(perfSamples, tickMs), settings, frames?.summary()) : undefined}
           >
             <div className="font-pixel text-xs text-ts-timer" data-testid="solo-score">
               SCORE {state.score}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { GameScreen } from './GameScreen'
 import { HowToScreen } from './HowToScreen'
 import { MenuScreen } from './MenuScreen'
@@ -36,6 +36,27 @@ export function App() {
     setToast({ id: Date.now(), text: "Classic mode — your device doesn't support 2026 graphics" })
   }, [])
 
+  // VISUAL_2026.md раздел 5: тики опаздывают — один раз за сессию предложить 1986. Кнопка
+  // переключает сразу, прямо в партии: поле пересоздаётся, игра идёт дальше.
+  const offeredClassic = useRef(false)
+  const offerClassic = useCallback(() => {
+    if (offeredClassic.current) return
+    offeredClassic.current = true
+    setToast({
+      id: Date.now(),
+      text: 'Switch to Classic 1986 for smoother play?',
+      action: {
+        label: 'SWITCH',
+        onClick: () =>
+          setSettings((current) => {
+            const next = { ...current, theme: '1986' as const }
+            saveSettings(next)
+            return next
+          }),
+      },
+    })
+  }, [])
+
   return (
     <>
       {renderScreen()}
@@ -59,9 +80,9 @@ export function App() {
     }
     if (screen === 'game') {
       return settings.mode === 'solo' ? (
-        <SoloScreen settings={settings} onMenu={() => setScreen('menu')} onRendererFallback={fallbackTo1986} />
+        <SoloScreen settings={settings} onMenu={() => setScreen('menu')} onRendererFallback={fallbackTo1986} onSlowRenderer={offerClassic} />
       ) : (
-        <GameScreen settings={settings} onMenu={() => setScreen('menu')} onRendererFallback={fallbackTo1986} />
+        <GameScreen settings={settings} onMenu={() => setScreen('menu')} onRendererFallback={fallbackTo1986} onSlowRenderer={offerClassic} />
       )
     }
     return (

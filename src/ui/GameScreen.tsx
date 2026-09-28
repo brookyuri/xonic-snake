@@ -22,7 +22,8 @@ import { describeRound, eventLines } from './roundText'
 import type { Settings } from './settings'
 import { markLastGameRematch, recordAbandoned, recordGame, unrecordAbandoned } from './stats'
 import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwipe } from './matchHooks'
-import { createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
+import { createFrameRecorder, createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
+import { LateTickMonitor } from './lateTicks'
 
 /** Клетка столкновения мигает 3 раза по 320 мс, потом появляется GAME OVER. */
 const DEATH_BLINK_MS = 960
@@ -45,23 +46,25 @@ interface Props {
   onMenu: () => void
   /** Поле 2026 не поднялось — App переключает на 1986 и показывает тост. */
   onRendererFallback: (error: unknown) => void
+  /** Тики опаздывают на теме 2026 — App предлагает перейти на 1986. */
+  onSlowRenderer: () => void
 }
 
 /** Экран игры. Каждый матч — отдельный Match с новым key: рестарт сбрасывает всё. */
-export function GameScreen({ settings, onMenu, onRendererFallback }: Props) {
+export function GameScreen({ settings, onMenu, onRendererFallback, onSlowRenderer }: Props) {
   const [matchId, setMatchId] = useState(0)
   const restart = useCallback((afterFinishedGame: boolean) => {
     if (afterFinishedGame) markLastGameRematch()
     setMatchId((id) => id + 1)
   }, [])
-  return <Match key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} onRendererFallback={onRendererFallback} />
+  return <Match key={matchId} settings={settings} onMenu={onMenu} onRestart={restart} onRendererFallback={onRendererFallback} onSlowRenderer={onSlowRenderer} />
 }
 
 interface MatchProps extends Props {
   onRestart: (afterFinishedGame: boolean) => void
 }
 
-function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) {
+function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer }: MatchProps) {
   const tickMs = SPEEDS[settings.speed]
   const [controller] = useState(
     () =>
@@ -85,6 +88,8 @@ function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) 
   const match = useRef({ startedAt: new Date().toISOString(), captures: 0, recorded: false })
   // Лениво: иначе рекордер (и window.__tsPerf) пересоздавался бы на каждом рендере.
   const [perfSamples] = useState(() => (perfEnabled ? createPerfRecorder() : null))
+  const [frames] = useState(() => (perfEnabled ? createFrameRecorder() : null))
+  const [lateTicks] = useState(() => new LateTickMonitor(tickMs))
 
   useFrameLoop(controller)
   useAutoPause(controller)
@@ -149,17 +154,27 @@ function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) 
     return () => clearTimeout(id)
   }, [controller, phase, ticks])
 
-  // ?perf: сколько прошло от начала тика до коммита DOM.
+  // Каждый тик: опоздания (VISUAL_2026.md раздел 5 — тост «перейти на 1986») и ?perf —
+  // сколько прошло от начала тика до коммита DOM.
   useLayoutEffect(() => {
-    if (!perfSamples || ticks === 0) return
-    perfSamples.push({
+    if (ticks === 0) return
+    const counted = lateTicks.tick(snap.lastTickAt)
+    if (phase !== 'RUNNING') lateTicks.pause()
+    if (settings.theme === '2026' && lateTicks.shouldOffer()) onSlowRenderer()
+    perfSamples?.push({
       tick: ticks,
       at: snap.lastTickAt,
       costMs: snap.lastTickCostMs,
       botMs: controller.lastBotMs,
       commitMs: performance.now() - snap.lastTickAt,
+      afterBreak: !counted,
     })
   }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Пауза, отсчёт, вспышка удара: интервал через перерыв — не опоздание.
+  useEffect(() => {
+    if (phase !== 'RUNNING') lateTicks.pause()
+  }, [phase, lateTicks])
 
   // Всё, что происходит один раз за тик.
   useEffect(() => {
@@ -246,7 +261,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) 
   return (
     <div className="screen">
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
-        {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} />}
+        {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} frames={frames?.summary()} />}
         <header className="pt-3">
           <div className="flex items-center gap-2 whitespace-nowrap font-pixel text-[10px]" data-testid="hud">
             <span className="shrink-0 text-ts-blue">BLUE {bluePercent}%</span>
@@ -270,6 +285,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) 
             tick={ticks}
             timing={{ at: snap.lastTickAt, tickMs, running: phase === 'RUNNING' }}
             onFallback={onRendererFallback}
+            onFrame={frames?.record}
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}
@@ -306,7 +322,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback }: MatchProps) 
             onMenu={onMenu}
             perfJson={
               perfSamples
-                ? () => perfReport(summarizePerf(perfSamples, tickMs), settings)
+                ? () => perfReport(summarizePerf(perfSamples, tickMs), settings, frames?.summary())
                 : undefined
             }
           >

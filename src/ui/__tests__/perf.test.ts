@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { summarizePerf, type TickSample } from '../perf'
+import { createFrameRecorder, summarizePerf, type TickSample } from '../perf'
 
 const sample = (tick: number, at: number, botMs = 2, commitMs = 3): TickSample => ({
   tick,
@@ -32,5 +32,26 @@ describe('summarizePerf', () => {
 
   it('exactly 1.5 × tickMs is not late', () => {
     expect(summarizePerf([sample(1, 0), sample(2, 270)], 180).lateTicksPct).toBe(0)
+  })
+})
+
+describe('summarizePerf: breaks', () => {
+  it('the interval into the first tick after a break (countdown, pause, lost life) is not counted', () => {
+    const samples = [sample(1, 0), sample(2, 180), { ...sample(3, 5000), afterBreak: true }, sample(4, 5180)]
+    const s = summarizePerf(samples, 180)
+    expect(s.lateTicksPct).toBe(0)
+    expect(s.avgInterval).toBe(180)
+  })
+})
+
+describe('createFrameRecorder', () => {
+  it('fps over the last second, frame() average and max', () => {
+    const r = createFrameRecorder()
+    for (let i = 0; i < 120; i++) r.record(i === 50 ? 12 : 2, i * (1000 / 60))
+    const s = r.summary()
+    expect(s.frames).toBe(120)
+    expect(s.fps).toBe(60)
+    expect(s.frameMax).toBe(12)
+    expect(s.frameAvg).toBeCloseTo((119 * 2 + 12) / 120, 1)
   })
 })
