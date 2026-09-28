@@ -16,7 +16,7 @@ import type { Settings } from './settings'
 import { describeSoloTick, levelIntro, progressLabel, soloEndReason } from './soloText'
 import { markLastGameRematch, recordSoloAbandoned, recordSoloGame, unrecordAbandoned } from './stats'
 
-/** Клетка удара мигает 3 раза по 320 мс (как в Duel), потом — отсчёт или GAME OVER. */
+/** Рамка клетки удара мигает 3 раза по 320 мс, потом — отсчёт или GAME OVER. */
 const HIT_BLINK_MS = 960
 
 const randomSeed = () => Math.floor(Math.random() * 2 ** 32)
@@ -191,7 +191,8 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
     return () => clearTimeout(id)
   }, [phase])
 
-  // Клетка удара: мигает во время LIFE_LOST (при reduced motion — статичная рамка) и на экране конца.
+  // Клетка удара: мигает её рамка во время LIFE_LOST (при reduced motion — статичная рамка)
+  // и на экране конца; шарик и след в клетке видны.
   const hit = phase === 'LIFE_LOST' || phase === 'FINISHED' ? lifeLostAt(events) : null
   const moved = events.find((e) => e.type === 'MOVED')
   const view =
@@ -222,6 +223,7 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
             flash={flash}
             loading={phase === 'COUNTDOWN'}
             highlight={hit ? [hit] : undefined}
+            highlightStyle="frame"
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}

@@ -30,6 +30,11 @@ interface Props {
   dangerTrail?: boolean
   /** Клетки столкновения на экране конца игры. */
   highlight?: Pos[]
+  /**
+   * Как мигает клетка столкновения: 'fill' — вся клетка белым/чёрным (Duel), 'frame' —
+   * только рамка, содержимое клетки видно (удар в Solo).
+   */
+  highlightStyle?: 'fill' | 'frame'
   /** Рамка показывает полосы «загрузки» (отсчёт 3-2-1). */
   loading?: boolean
   className?: string
@@ -139,6 +144,7 @@ export function Board({
   flash,
   dangerTrail = false,
   highlight = [],
+  highlightStyle = 'fill',
   loading = false,
   className = '',
   style,
@@ -174,17 +180,6 @@ export function Board({
       </div>
 
       <div className="pointer-events-none absolute inset-0">
-        {balls.map((pos, i) => (
-          <div
-            key={`ball-${i}`}
-            data-ball
-            className="board-piece absolute left-0 top-0 flex items-center justify-center"
-            style={cellBox(pos, size)}
-          >
-            <div className="ball" />
-          </div>
-        ))}
-
         {heads.map(({ id, pos, direction }) => (
           <div
             key={`head-${id}`}
@@ -198,11 +193,23 @@ export function Board({
           </div>
         ))}
 
+        {/* Шарики поверх голов: в одной клетке они бывают только в момент удара — шарик должен быть виден. */}
+        {balls.map((pos, i) => (
+          <div
+            key={`ball-${i}`}
+            data-ball
+            className="board-piece absolute left-0 top-0 flex items-center justify-center"
+            style={cellBox(pos, size)}
+          >
+            <div className="ball" />
+          </div>
+        ))}
+
         {highlight.map((pos, i) => (
           <div
             key={`hit-${i}`}
             data-collision
-            className="collision-cell absolute left-0 top-0"
+            className={`${highlightStyle === 'frame' ? 'hit-frame' : 'collision-cell'} absolute left-0 top-0`}
             style={cellBox(pos, size)}
           />
         ))}

@@ -207,6 +207,19 @@ body {
   }
 }
 
+/* Удар в Solo: мигает только рамка клетки (3 раза), шарик и след под ней видны всё время;
+   затем рамка остаётся. 2px — рамка помещается в зазор между краем клетки и шариком (70%). */
+.hit-frame {
+  box-shadow: inset 0 0 0 2px var(--c-text);
+  animation: hit-frame-blink 320ms steps(1, end) 3;
+}
+
+@keyframes hit-frame-blink {
+  50% {
+    box-shadow: none;
+  }
+}
+
 /* Последние 10 секунд матча: таймер мигает дискретно. */
 .timer-final {
   animation: timer-blink 1s steps(1, end) infinite;
@@ -233,6 +246,7 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .cell-p1-trail.trail-danger,
   .collision-cell,
+  .hit-frame,
   .timer-final,
   .cursor-blink,
   .board-loading {
