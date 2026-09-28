@@ -1,7 +1,8 @@
 import { autoDetectRenderer, Container, Graphics, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js'
-import type { Owner } from '../../engine/types'
+import type { Owner, PlayerId } from '../../engine/types'
 import type { BoardRenderer, BoardVariant, MountOptions, RenderEvent, RenderSnapshot } from '../types'
 import { LAND } from './palette'
+import { SnakeSprite, snakeMetrics } from './snake'
 import { boardTexture, landTexture } from './textures'
 
 export type PixiPreference = 'webgl' | 'canvas'
@@ -38,6 +39,8 @@ export class Pixi2026Renderer implements BoardRenderer {
   private baseTexture: Texture | null = null
   private landTextures: (Texture | null)[] = []
   private kinds = new Uint8Array(0)
+  private readonly snakeLayer = new Container()
+  private readonly snakes = new Map<PlayerId, SnakeSprite>()
   private readonly hit = new Graphics()
   private hitStartedAt = 0
 
@@ -51,7 +54,7 @@ export class Pixi2026Renderer implements BoardRenderer {
 
   constructor(private readonly preference: PixiPreference[] = ['webgl', 'canvas']) {
     this.stamp.addChild(this.eraseLayer, this.panelLayer)
-    this.stage.addChild(this.baseSprite, this.landSprite, this.hit)
+    this.stage.addChild(this.baseSprite, this.landSprite, this.snakeLayer, this.hit)
   }
 
   get rendererName(): string {
@@ -95,6 +98,9 @@ export class Pixi2026Renderer implements BoardRenderer {
     const radius = s.variant === 'solo' ? 2 : 3
     this.landTextures = LAND_STYLES.map((style) => (style ? landTexture(cell, radius, style, this.res) : null))
 
+    const m = snakeMetrics(cell, s.variant)
+    for (const snake of this.snakes.values()) snake.setMetrics(m)
+
     this.land?.destroy(true)
     this.land = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
     r.render({ container: new Container(), target: this.land, clear: true })
@@ -108,7 +114,28 @@ export class Pixi2026Renderer implements BoardRenderer {
     if (s.variant !== this.variant || s.cols !== this.cols || s.rows !== this.rows || first) this.layout(s)
     this.snapshot = s
     this.drawLand(s)
+    this.updateSnakes(s)
     this.updateHit(s)
+  }
+
+  /** Змеи: BLUE, затем RED — RED сверху (как в 1986). */
+  private updateSnakes(s: RenderSnapshot): void {
+    const seen = new Set<PlayerId>()
+    for (const view of s.snakes) {
+      seen.add(view.id)
+      let snake = this.snakes.get(view.id)
+      if (!snake) {
+        snake = new SnakeSprite(view.id, snakeMetrics(this.size / this.cols, s.variant), this.reducedMotion)
+        this.snakes.set(view.id, snake)
+        this.snakeLayer.addChild(snake.container)
+      }
+      snake.update(view)
+    }
+    for (const [id, snake] of this.snakes) {
+      if (seen.has(id)) continue
+      snake.destroy()
+      this.snakes.delete(id)
+    }
   }
 
   /** Земля: стереть и перерисовать только клетки, у которых сменился вид. */
@@ -170,9 +197,11 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.hit.stroke({ width: w, color: 0xffffff })
   }
 
-  frame(_alpha: number): void {
+  frame(alpha: number): void {
     if (!this.renderer || !this.snapshot) return
     const now = performance.now()
+    const a = this.reducedMotion ? 1 : alpha
+    for (const snake of this.snakes.values()) snake.frame(a, now)
     if (this.hitStartedAt > 0) {
       const t = now - this.hitStartedAt
       this.hit.visible = this.reducedMotion || t >= HIT_BLINKS * HIT_BLINK_MS || t % HIT_BLINK_MS < HIT_BLINK_MS / 2
@@ -194,6 +223,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.land?.destroy(true)
     for (const t of this.landTextures) t?.destroy(true)
     this.baseTexture?.destroy(true)
+    this.snakes.clear()
     this.stage.destroy({ children: true })
     this.stamp.destroy({ children: true })
     this.renderer?.destroy({ removeView: true })
