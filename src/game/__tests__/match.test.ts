@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MatchController, type MatchOptions } from '../match'
+import { MatchController, tickAlpha, type MatchOptions } from '../match'
 import { asStepped, type Bot } from '../../bot/types'
 import type { Direction } from '../../engine/types'
 import { assertInvariants } from '../../engine/invariants'
@@ -251,5 +251,42 @@ describe('MatchController', () => {
     const sliced = play(0)
     expect(sliced.state).toBe(atTick.state)
     expect(sliced.slices).toBeGreaterThan(0)
+  })
+})
+
+describe('tickAlpha — доля тика для плавной отрисовки', () => {
+  it('pure function: 0 right after the tick, grows linearly, clamps to 0..1, 1 when not running', () => {
+    expect(tickAlpha(1000, 1000, 200, true)).toBe(0)
+    expect(tickAlpha(1050, 1000, 200, true)).toBe(0.25)
+    expect(tickAlpha(1200, 1000, 200, true)).toBe(1)
+    expect(tickAlpha(1500, 1000, 200, true)).toBe(1)
+    expect(tickAlpha(900, 1000, 200, true)).toBe(0)
+    expect(tickAlpha(1050, 1000, 200, false)).toBe(1)
+  })
+
+  it('controller on fake clocks: 1 in the countdown, 0 → 1 over each tick, 1 on pause', () => {
+    const { clock, match, finishCountdown } = setup()
+    expect(match.alpha()).toBe(1) // отсчёт
+    const end = finishCountdown()
+    expect(match.alpha()).toBe(1) // игра началась, первого тика ещё не было
+    clock.set(end + TICK)
+    match.frame()
+    expect(match.snapshot.ticks).toBe(1)
+    expect(match.alpha()).toBe(0)
+    clock.add(TICK / 4)
+    match.frame()
+    expect(match.alpha()).toBeCloseTo(0.25)
+    clock.add(TICK / 2)
+    match.frame()
+    expect(match.alpha()).toBeCloseTo(0.75)
+    // Следующий тик опоздал на 30 мс: доля считается от фактического начала тика.
+    clock.set(end + 2 * TICK + 30)
+    match.frame()
+    expect(match.snapshot.ticks).toBe(2)
+    expect(match.alpha()).toBe(0)
+    clock.add(TICK / 2)
+    expect(match.alpha()).toBeCloseTo(0.5)
+    match.pause()
+    expect(match.alpha()).toBe(1)
   })
 })

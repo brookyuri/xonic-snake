@@ -39,6 +39,17 @@ export interface TickOptions {
   countdownMs?: number
 }
 
+/**
+ * Доля прошедшего тика 0..1 для плавной отрисовки (VISUAL_2026.md «Движение»): 0 — только
+ * что был тик, 1 — пора следующий. Вне игры (отсчёт, пауза, паузы Solo, конец) — 1: кадр
+ * стоит на месте, в клетках последнего тика.
+ */
+export function tickAlpha(now: number, lastTickAt: number, tickMs: number, running: boolean): number {
+  if (!running || tickMs <= 0) return 1
+  const alpha = (now - lastTickAt) / tickMs
+  return alpha <= 0 ? 0 : alpha >= 1 ? 1 : alpha
+}
+
 /** Итог тика для общего цикла: новое состояние и куда перейти дальше. */
 export interface TickResult<S, E> {
   state: S
@@ -125,6 +136,12 @@ export abstract class TickController<S, E> {
   /** Досрочно закрыть экран «LEVEL N CLEAR» (тап). Вспышку удара пропустить нельзя. */
   skipHold(): void {
     if (this.snapshot.phase === 'LEVEL_CLEAR') this.startCountdown()
+  }
+
+  /** Доля текущего тика для рендерера (frame(alpha)). */
+  alpha(): number {
+    const { phase, lastTickAt } = this.snapshot
+    return tickAlpha(this.now(), lastTickAt, this.tickMs, phase === 'RUNNING')
   }
 
   /** Один кадр. Максимум один тик за вызов: отставшая вкладка не «догоняет» пачкой. */
