@@ -90,25 +90,34 @@ describe('stress: random snake in Solo', () => {
     let totalTicks = 0
     let hitLimit = 0
     let maxLevel = 1
+    // Жизнь потеряна в первые 5 тиков после возрождения (после отсчёта).
+    const QUICK = 5
+    let quickLosses = 0
 
     for (let game = 0; game < GAMES; game++) {
       let state = createSoloState({ seed: SEED + game })
       let ticks = 0
+      let sinceRespawn = Infinity
       while (state.status !== 'GAME_OVER' && ticks < MAX_TICKS) {
         if (state.status !== 'PLAYING') {
+          sinceRespawn = state.status === 'LIFE_LOST' ? 0 : Infinity
           state = continueSolo(state)
           assertSoloInvariants(state)
         }
         const move = randomSnake(state, rng)
         const result = resolveSoloTick(state, move)
         ticks++
+        sinceRespawn++
         try {
           assertSoloInvariants(result.state, state)
         } catch (error) {
           throw new Error(`game ${game}, tick ${ticks}, move ${move}: ${(error as Error).message}\n${JSON.stringify(state)}`)
         }
         for (const e of result.events) {
-          if (e.type === 'LIFE_LOST') lifeLost[e.reason]++
+          if (e.type === 'LIFE_LOST') {
+            lifeLost[e.reason]++
+            if (sinceRespawn <= QUICK) quickLosses++
+          }
           if (e.type === 'CAPTURED') {
             captures++
             capturedCells += e.cells.length
@@ -133,6 +142,7 @@ describe('stress: random snake in Solo', () => {
         `passed level 1: ${passedLevel1} (${pct(passedLevel1, GAMES)})`,
         `avg capture: ${(capturedCells / Math.max(1, captures)).toFixed(2)} cells over ${captures} captures`,
         `avg length: ${(totalTicks / GAMES).toFixed(1)} ticks; hit the limit: ${hitLimit}`,
+        `lives lost within ${QUICK} ticks after a respawn: ${quickLosses} (${pct(quickLosses, lost)} of lost lives)`,
       ].join('\n')
     )
     expect(levelsReached).toBeGreaterThanOrEqual(GAMES)
