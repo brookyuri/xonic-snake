@@ -13,6 +13,8 @@ export default {
           timer: 'var(--c-hud-timer)',
           red: 'var(--c-hud-red)',
           frame: 'var(--c-frame)',
+          land: 'var(--c-p1-land)',
+          ball: 'var(--c-ball)',
           border: 'var(--c-btn-border)',
           danger: 'var(--c-danger)',
           scrim: 'var(--c-scrim)',
