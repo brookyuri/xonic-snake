@@ -14,7 +14,8 @@ export const SOLO_START: { head: Pos; direction: Direction } = {
 
 /**
  * Точки возрождения после потери жизни (раздел 2.1): середины сторон рамки, направление —
- * вдоль рамки по часовой стрелке. Порядок важен: при равенстве берётся первая.
+ * вдоль рамки против часовой стрелки на экране (ось y вниз). Порядок важен: при равенстве
+ * берётся первая.
  */
 export const RESPAWN_POINTS: readonly { head: Pos; direction: Direction }[] = [
   { head: { x: 9, y: SOLO_BOARD_SIZE - 1 }, direction: 'RIGHT' },
