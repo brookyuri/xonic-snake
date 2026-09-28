@@ -8,7 +8,10 @@ import { normalBotSteps } from '../bot/normalBot'
 import { FINAL_SECONDS, formatClock, maxRoundsFor, SPEEDS, timeLeftMs } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
 import { MatchController } from '../game/match'
-import { Board, DUEL_LEGEND, duelHeads, type Flash } from './Board'
+import { DUEL_LEGEND, type Flash } from './Board'
+import { BoardView } from './BoardView'
+import { snapshotFromDuel } from '../render/adapters'
+import type { RenderSnapshot } from '../render/types'
 import { DPad } from './DPad'
 import { CountdownOverlay, EventLine, PauseButton, PerfPanel } from './GameChrome'
 import { GameOverScreen } from './GameOverScreen'
@@ -219,6 +222,16 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
   const lines = eventLines(feed.current.visible(now), inDanger)
 
   const end = phase === 'FINISHED' ? describeEnd(state, events) : null
+  const boardSnapshot = useMemo(
+    (): RenderSnapshot => ({
+      ...snapshotFromDuel(state, events),
+      flash: flash?.cells ?? null,
+      loading: phase === 'COUNTDOWN',
+      danger: inDanger,
+      highlight: phase === 'FINISHED' ? describeEnd(state, events).highlight : undefined,
+    }),
+    [state, events, flash, phase, inDanger]
+  )
   const bluePercent = territoryPercent(state, 'P1')
   const redPercent = territoryPercent(state, 'P2')
   const timeLeft = timeLeftMs(state, tickMs)
@@ -248,19 +261,16 @@ function Match({ settings, onMenu, onRestart }: MatchProps) {
         </header>
 
         <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
-          <Board
-            board={state.board}
-            heads={duelHeads(state)}
-            flash={flash}
-            loading={phase === 'COUNTDOWN'}
-            dangerTrail={inDanger}
-            highlight={end?.highlight}
+          <BoardView
+            snapshot={boardSnapshot}
+            events={events}
+            tick={ticks}
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}
           >
             {phase === 'COUNTDOWN' && <CountdownOverlay value={snap.countdown} />}
-          </Board>
+          </BoardView>
         </div>
 
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">

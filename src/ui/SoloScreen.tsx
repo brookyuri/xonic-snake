@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { assertSoloInvariants, SOLO_BOARD_SIZE, START_LIVES, type SoloState } from '../engine/solo'
 import type { Direction, PlayerId, Pos } from '../engine/types'
 import { SPEEDS } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
 import { SoloMatchController } from '../game/soloMatch'
-import { Board, SOLO_LEGEND, type Flash } from './Board'
+import { SOLO_LEGEND, type Flash } from './Board'
+import { BoardView } from './BoardView'
+import { snapshotFromSolo } from '../render/adapters'
+import type { RenderSnapshot } from '../render/types'
 import { DPad } from './DPad'
 import { CountdownOverlay, EventLine, PauseButton, PerfPanel } from './GameChrome'
 import { GameOverScreen } from './GameOverScreen'
@@ -192,13 +195,28 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
   }, [phase])
 
   // Клетка удара: мигает её рамка во время LIFE_LOST (при reduced motion — статичная рамка)
-  // и на экране конца; шарик и след в клетке видны.
-  const hit = phase === 'LIFE_LOST' || phase === 'FINISHED' ? lifeLostAt(events) : null
-  const moved = events.find((e) => e.type === 'MOVED')
-  const view =
-    hit && moved?.type === 'MOVED'
-      ? { board: history.current.before.board, head: moved.to, direction: stepDirection(moved.from, moved.to) }
-      : { board: state.board, head: state.player.head, direction: state.player.direction }
+  // и на экране конца; шарик и след в клетке видны. Поле — кадр удара: доска и след до
+  // тика, голова в клетке удара.
+  const boardSnapshot = useMemo((): RenderSnapshot => {
+    const hit = phase === 'LIFE_LOST' || phase === 'FINISHED' ? lifeLostAt(events) : null
+    const moved = events.find((e) => e.type === 'MOVED')
+    const before = history.current.before
+    const view: SoloState =
+      hit && moved?.type === 'MOVED'
+        ? {
+            ...before,
+            player: { ...before.player, head: moved.to, direction: stepDirection(moved.from, moved.to) },
+            balls: state.balls,
+          }
+        : state
+    return {
+      ...snapshotFromSolo(view, events),
+      flash: flash?.cells ?? null,
+      loading: phase === 'COUNTDOWN',
+      highlight: hit ? [hit] : undefined,
+      highlightStyle: 'frame',
+    }
+  }, [state, events, phase, flash])
   const canSteer = phase === 'RUNNING' || phase === 'COUNTDOWN'
   const heading = lastQueuedDirection(snap.queue, state.player.direction)
   const lines = feed.current.visible(performance.now())
@@ -216,14 +234,10 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
         </header>
 
         <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
-          <Board
-            board={view.board}
-            heads={[{ id: 'P1', pos: view.head, direction: view.direction }]}
-            balls={ballPositions(state)}
-            flash={flash}
-            loading={phase === 'COUNTDOWN'}
-            highlight={hit ? [hit] : undefined}
-            highlightStyle="frame"
+          <BoardView
+            snapshot={boardSnapshot}
+            events={events}
+            tick={ticks}
             className="board-fit"
             style={{ touchAction: 'none' }}
             {...swipe}
@@ -241,7 +255,7 @@ function SoloMatch({ settings, onMenu, onRestart }: MatchProps) {
                 <span className="text-[10px] text-ts-text2">TAP TO GO ON</span>
               </button>
             )}
-          </Board>
+          </BoardView>
         </div>
 
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
@@ -316,8 +330,6 @@ function SoloHud({ state, peakLives, children }: { state: SoloState; peakLives: 
     </div>
   )
 }
-
-const ballPositions = (state: SoloState): Pos[] => state.balls.map((b) => b.pos)
 
 const stepDirection = (from: Pos, to: Pos): Direction =>
   to.x > from.x ? 'RIGHT' : to.x < from.x ? 'LEFT' : to.y > from.y ? 'DOWN' : 'UP'

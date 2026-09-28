@@ -1,4 +1,7 @@
-import { Board, duelHeads, DUEL_LEGEND, Legend, SOLO_LEGEND, type HeadView } from './Board'
+import { duelHeads, DUEL_LEGEND, Legend, SOLO_LEGEND, type HeadView } from './Board'
+import { BoardView } from './BoardView'
+import { staticSnapshot } from '../render/adapters'
+import type { RenderSnapshot } from '../render/types'
 import { diagram, soloDiagram } from './diagram'
 import type { Cell, Pos } from '../engine/types'
 import type { Mode } from './settings'
@@ -8,6 +11,14 @@ interface Step {
   board: Cell[][]
   heads: HeadView[]
   balls?: Pos[]
+}
+
+/** Кадр схемы — один раз на шаг, а не на каждый рендер. */
+const snapshots = new WeakMap<Step, RenderSnapshot>()
+function stepSnapshot(step: Step, mode: Mode): RenderSnapshot {
+  let snap = snapshots.get(step)
+  if (!snap) snapshots.set(step, (snap = staticSnapshot(mode, step.board, step.heads, step.balls)))
+  return snap
 }
 
 const duel = (rows: string[], directions: Parameters<typeof diagram>[1]) => {
@@ -73,12 +84,7 @@ export function HowToScreen({ mode, onDone, doneLabel }: { mode: Mode; onDone: (
         <ol className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
           {steps.map((step, i) => (
             <li key={i} className="flex items-center gap-4">
-              <Board
-                board={step.board}
-                heads={step.heads}
-                balls={step.balls}
-                className="board-mini w-[76px] shrink-0"
-              />
+              <BoardView snapshot={stepSnapshot(step, mode)} className="board-mini w-[76px] shrink-0" />
               <p className="font-mono text-sm leading-snug text-ts-text2">
                 <span className="mr-1 font-semibold text-ts-blue">{i + 1}.</span>
                 {step.text}
