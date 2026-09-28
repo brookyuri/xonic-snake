@@ -12,6 +12,8 @@ import { DPad } from './DPad'
 import { CountdownOverlay, EventLine, PauseButton, PerfPanel } from './GameChrome'
 import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
+import { EventLine2026, SoloHud2026 } from '../ui26/Hud2026'
+import { Controls2026 } from '../ui26/Controls2026'
 import { MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwipe } from './matchHooks'
 import { createFrameRecorder, createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
@@ -239,16 +241,33 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
   const lines = feed.current.visible(performance.now())
   const levelBonus = events.find((e) => e.type === 'LEVEL_COMPLETE')
 
+  // Тема 2026: свои HUD, строка событий и управление (VISUAL_2026.md раздел 4); 1986 — как было.
+  const t26 = settings.theme === '2026'
+
   return (
-    <div className="screen">
+    <div className={t26 ? 't26-screen' : 'screen'}>
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} frames={frames?.summary()} />}
+        {t26 ? (
+          <header className="pt-3">
+            <SoloHud2026
+              score={state.score}
+              level={state.level}
+              lives={state.lives}
+              slots={Math.max(peakLives.current, state.lives)}
+              progressPercent={Math.floor(state.progress * 100)}
+              targetPercent={75}
+            />
+            <EventLine2026 lines={lines} tone="solo" />
+          </header>
+        ) : (
         <header className="pt-3">
           <SoloHud state={state} peakLives={peakLives.current}>
             <PauseButton disabled={!canSteer} onPause={() => controller.pause()} />
           </SoloHud>
           <EventLine lines={lines} />
         </header>
+        )}
 
         <div
           // 2026: рамка шире сетки на отступ (скос вне сетки) — слот заходит в поля экрана,
@@ -283,9 +302,13 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
           </BoardView>
         </div>
 
+        {t26 ? (
+          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} />
+        ) : (
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
           <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} />
         </div>
+        )}
 
         {phase === 'PAUSED' && (
           <PauseScreen

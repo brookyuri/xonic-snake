@@ -16,6 +16,8 @@ import { DPad } from './DPad'
 import { CountdownOverlay, EventLine, PauseButton, PerfPanel } from './GameChrome'
 import { GameOverScreen } from './GameOverScreen'
 import { PauseScreen } from './PauseScreen'
+import { DuelHud2026, EventLine2026 } from '../ui26/Hud2026'
+import { Controls2026 } from '../ui26/Controls2026'
 import { describeEnd } from './endText'
 import { HeldFlag, MESSAGE_HOLD_MS, MessageFeed } from './messageFeed'
 import { describeRound, eventLines } from './roundText'
@@ -263,11 +265,25 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
   const canSteer = phase === 'RUNNING' || phase === 'COUNTDOWN'
 
   const swipe = useSwipe(controller)
+  // Тема 2026: свои HUD, строка событий и управление (VISUAL_2026.md раздел 4); 1986 — как было.
+  const t26 = settings.theme === '2026'
 
   return (
-    <div className="screen">
+    <div className={t26 ? 't26-screen t26-duel' : 'screen'}>
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} frames={frames?.summary()} />}
+        {t26 ? (
+          <header className="pt-3">
+            <DuelHud2026
+              bluePercent={bluePercent}
+              redPercent={redPercent}
+              clock={formatClock(timeLeft)}
+              finalSeconds={finalSeconds}
+              difficulty={settings.difficulty}
+            />
+            <EventLine2026 lines={lines} urgent={inDanger} tone="duel" />
+          </header>
+        ) : (
         <header className="pt-3">
           <div className="flex items-center gap-2 whitespace-nowrap font-pixel text-[10px]" data-testid="hud">
             <span className="shrink-0 text-ts-blue">BLUE {bluePercent}%</span>
@@ -282,6 +298,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
           </div>
           <EventLine lines={lines} urgent={inDanger} />
         </header>
+        )}
 
         <div
           // 2026: рамка шире сетки на отступ (скос вне сетки) — слот заходит в поля экрана,
@@ -304,9 +321,13 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
           </BoardView>
         </div>
 
+        {t26 ? (
+          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} />
+        ) : (
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
           <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} />
         </div>
+        )}
 
         {phase === 'PAUSED' && (
           <PauseScreen
