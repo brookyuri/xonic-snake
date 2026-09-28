@@ -2,6 +2,7 @@ import { autoDetectRenderer, Container, Graphics, RenderTexture, Sprite, Texture
 import type { Owner, PlayerId } from '../../engine/types'
 import type { BoardRenderer, BoardVariant, MountOptions, RenderEvent, RenderSnapshot } from '../types'
 import { LAND } from './palette'
+import { BallSprites } from './balls'
 import { SnakeSprite, snakeMetrics } from './snake'
 import { boardTexture, landTexture } from './textures'
 
@@ -40,7 +41,9 @@ export class Pixi2026Renderer implements BoardRenderer {
   private landTextures: (Texture | null)[] = []
   private kinds = new Uint8Array(0)
   private readonly snakeLayer = new Container()
+  private readonly ballLayer = new Container()
   private readonly snakes = new Map<PlayerId, SnakeSprite>()
+  private balls: BallSprites | null = null
   private readonly hit = new Graphics()
   private hitStartedAt = 0
 
@@ -54,7 +57,8 @@ export class Pixi2026Renderer implements BoardRenderer {
 
   constructor(private readonly preference: PixiPreference[] = ['webgl', 'canvas']) {
     this.stamp.addChild(this.eraseLayer, this.panelLayer)
-    this.stage.addChild(this.baseSprite, this.landSprite, this.snakeLayer, this.hit)
+    // Шарики поверх змей: в одной клетке они бывают только в момент удара — шарик должен быть виден.
+    this.stage.addChild(this.baseSprite, this.landSprite, this.snakeLayer, this.ballLayer, this.hit)
   }
 
   get rendererName(): string {
@@ -67,6 +71,8 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.cols = opts.cols
     this.rows = opts.rows
     this.reducedMotion = opts.reducedMotion
+    this.balls = new BallSprites(this.reducedMotion)
+    this.ballLayer.addChild(this.balls.container)
     this.renderer = await autoDetectRenderer({
       width: this.size,
       height: this.size,
@@ -100,6 +106,7 @@ export class Pixi2026Renderer implements BoardRenderer {
 
     const m = snakeMetrics(cell, s.variant)
     for (const snake of this.snakes.values()) snake.setMetrics(m)
+    this.balls!.setCell(cell, this.res)
 
     this.land?.destroy(true)
     this.land = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
@@ -115,6 +122,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.snapshot = s
     this.drawLand(s)
     this.updateSnakes(s)
+    this.balls!.update(s.balls)
     this.updateHit(s)
   }
 
@@ -202,6 +210,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     const now = performance.now()
     const a = this.reducedMotion ? 1 : alpha
     for (const snake of this.snakes.values()) snake.frame(a, now)
+    this.balls!.frame(a, now)
     if (this.hitStartedAt > 0) {
       const t = now - this.hitStartedAt
       this.hit.visible = this.reducedMotion || t >= HIT_BLINKS * HIT_BLINK_MS || t % HIT_BLINK_MS < HIT_BLINK_MS / 2
@@ -224,6 +233,8 @@ export class Pixi2026Renderer implements BoardRenderer {
     for (const t of this.landTextures) t?.destroy(true)
     this.baseTexture?.destroy(true)
     this.snakes.clear()
+    this.balls?.destroy()
+    this.balls = null
     this.stage.destroy({ children: true })
     this.stamp.destroy({ children: true })
     this.renderer?.destroy({ removeView: true })
