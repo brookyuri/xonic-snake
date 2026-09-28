@@ -139,7 +139,11 @@ function buildHead(pal: SnakePalette): { head: Container; tongue: Graphics } {
   return { head, tongue }
 }
 
-/** Слой последнего участка: прямоугольники из белой текстуры (сплошной — один, пунктир — пул). */
+/**
+ * Слой последнего участка: прямоугольники из белой текстуры (сплошной — один, пунктир — пул).
+ * Лишние куски не прячутся через visible, а сжимаются в ноль: в Pixi v8 смена visible
+ * заставляет пересобирать список отрисовки всей сцены на каждом кадре.
+ */
 class SegmentLayer {
   readonly container = new Container()
   private readonly sprites: Sprite[] = []
@@ -160,7 +164,6 @@ class SegmentLayer {
       this.sprites.push(sprite)
       this.container.addChild(sprite)
     }
-    sprite.visible = true
     sprite.position.set(x + Math.cos(angle) * from, y + Math.sin(angle) * from)
     sprite.rotation = angle
     sprite.setSize(to - from, width)
@@ -171,11 +174,11 @@ class SegmentLayer {
     let used = 0
     if (!dash) this.piece(used++, x, y, angle, 0, length, width)
     else for (const [from, to] of dashIntervals(length, dash[0], dash[1], dash[2])) this.piece(used++, x, y, angle, from, to, width)
-    for (let i = used; i < this.sprites.length; i++) this.sprites[i].visible = false
+    for (let i = used; i < this.sprites.length; i++) this.sprites[i].setSize(0, 0)
   }
 
   hide(): void {
-    for (const sprite of this.sprites) sprite.visible = false
+    for (const sprite of this.sprites) sprite.setSize(0, 0)
   }
 }
 
@@ -265,13 +268,14 @@ export class SnakeSprite {
     const end = interpolateCell(view.prevHead, view.head, alpha, this.m.cell)
     this.angle = headRotation(this.angleFrom, this.angleTo, alpha)
     const home = this.base.length === 0
-    this.neck.visible = home
+    // alpha, а не visible — см. SegmentLayer.
+    this.neck.alpha = home ? 1 : 0
     this.neck.position.set(end.x, end.y)
     this.neck.rotation = this.angle
     this.drawMoving(home ? null : this.base[this.base.length - 1], end)
     this.head.position.set(end.x, end.y)
     this.head.rotation = this.angle
-    this.tongue.visible = !this.reducedMotion && (now + this.tonguePhase) % TONGUE_PERIOD_MS < TONGUE_SHOWN_MS
+    this.tongue.alpha = !this.reducedMotion && (now + this.tonguePhase) % TONGUE_PERIOD_MS < TONGUE_SHOWN_MS ? 1 : 0
   }
 
   /** Последний участок: от конца неподвижной части до интерполированной головы. */

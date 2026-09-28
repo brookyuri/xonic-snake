@@ -32,6 +32,11 @@ interface Props {
   children?: ReactNode
 }
 
+/** Кадр ближе этого к следующему тику не рисуется (тик придёт в этом же rAF). */
+const FRAME_GUARD_MS = 4
+/** frame() в среднем дороже — рисуем через кадр. */
+const SLOW_FRAME_MS = 6
+
 /** Сторона поля внутри рамки, CSS px. */
 function contentSize(el: HTMLElement): number {
   const cs = getComputedStyle(el)
@@ -82,12 +87,23 @@ export function BoardView({
       lastTick.current = latest.current.tick
       r.update(latest.current.snapshot, [])
       if (!animated) return
+      // Бюджет на слабых устройствах (VISUAL_2026.md раздел 5 — тики важнее кадров):
+      // 1) кадр, в котором вот-вот будет тик, не рисуем — его занимают тик и коммит React,
+      //    а картинка при alpha ≈ 1 почти не отличается от предыдущей;
+      // 2) если frame() в среднем дороже SLOW_FRAME_MS, рисуем через кадр (~30 FPS).
+      let avg = 0
+      let odd = false
       raf = requestAnimationFrame(function loop() {
+        raf = requestAnimationFrame(loop)
         const started = performance.now()
         const t = latest.current.timing
+        if (t?.running && started >= t.at + t.tickMs - FRAME_GUARD_MS) return
+        odd = !odd
+        if (avg > SLOW_FRAME_MS && odd) return
         r.frame(t && !reduced ? tickAlpha(started, t.at, t.tickMs, t.running) : 1)
-        latest.current.onFrame?.(performance.now() - started, started)
-        raf = requestAnimationFrame(loop)
+        const ms = performance.now() - started
+        avg = avg === 0 ? ms : avg * 0.9 + ms * 0.1
+        latest.current.onFrame?.(ms, started)
       })
     }
 

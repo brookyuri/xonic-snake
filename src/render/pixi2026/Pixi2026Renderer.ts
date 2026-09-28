@@ -117,10 +117,42 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.kinds = new Uint8Array(this.cols * this.rows)
   }
 
+  /**
+   * Прогрев (во время отсчёта): один раз рисуем в скрытую текстуру змею со следом и шарики —
+   * всё, что появится только когда игра пойдёт. Иначе первые выходы из дома платят за сборку
+   * шейдеров, буферов и пулов прямо на тиках (замер: пики frame() 90–220 мс при 6× CPU).
+   */
+  private warmUp(s: RenderSnapshot): void {
+    const r = this.renderer!
+    const cell = this.size / this.cols
+    const warm = new Container()
+    const cx = Math.floor(s.cols / 2)
+    const cy = Math.floor(s.rows / 2)
+    const trail = [0, 1, 2, 3, 4].map((i) => ({ x: cx - 2 + i, y: cy + (i > 2 ? 1 : 0) }))
+    for (const id of ['P1', 'P2'] as const) {
+      const snake = new SnakeSprite(id, snakeMetrics(cell, s.variant), this.reducedMotion)
+      snake.update({ id, trail, head: trail[4], prevHead: trail[3], direction: 'RIGHT', alive: true })
+      snake.frame(0.5, 0)
+      warm.addChild(snake.container)
+    }
+    const balls = new BallSprites(this.reducedMotion)
+    balls.setCell(cell, this.res)
+    balls.update([{ pos: { x: cx, y: cy }, prev: { x: cx - 1, y: cy - 1 } }])
+    balls.frame(0.5, 0)
+    warm.addChild(balls.container, this.stage)
+    const target = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
+    r.render({ container: warm, target, clear: true })
+    warm.removeChild(this.stage, balls.container)
+    warm.destroy({ children: true })
+    balls.destroy()
+    target.destroy(true)
+  }
+
   update(s: RenderSnapshot, _events: readonly RenderEvent[]): void {
     if (!this.renderer) return
     const first = !this.snapshot
     if (s.variant !== this.variant || s.cols !== this.cols || s.rows !== this.rows || first) this.layout(s)
+    if (first) this.warmUp(s)
     this.snapshot = s
     this.drawLand(s)
     this.updateSnakes(s)
@@ -215,7 +247,8 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.balls!.frame(a, now)
     if (this.hitStartedAt > 0) {
       const t = now - this.hitStartedAt
-      this.hit.visible = this.reducedMotion || t >= HIT_BLINKS * HIT_BLINK_MS || t % HIT_BLINK_MS < HIT_BLINK_MS / 2
+      // alpha, а не visible: смена visible пересобирает список отрисовки сцены.
+      this.hit.alpha = this.reducedMotion || t >= HIT_BLINKS * HIT_BLINK_MS || t % HIT_BLINK_MS < HIT_BLINK_MS / 2 ? 1 : 0
     }
     this.renderer.render({ container: this.stage })
   }
