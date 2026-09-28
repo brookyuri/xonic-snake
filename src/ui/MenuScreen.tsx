@@ -91,7 +91,7 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
       <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-ts-text">
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
           <h1 className="text-center font-pixel text-[clamp(20px,7vw,32px)] leading-snug">
-            <span className="text-ts-blue">TERRITORY</span>
+            <span className="text-ts-blue">XONIC</span>
             <br />
             <span className="text-ts-red">SNAKE</span>
           </h1>

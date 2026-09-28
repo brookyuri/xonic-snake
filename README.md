@@ -1,4 +1,4 @@
-# Territory Snake
+# Xonic Snake
 
 A real-time territory game for the mobile browser, with two modes:
 
@@ -7,12 +7,12 @@ A real-time territory game for the mobile browser, with two modes:
 
 In both modes the snake moves on its own; you only steer.
 
-The board has two looks, switched in the menu (GRAPHICS 1986 | 2026):
+Two looks, switched in the menu (1986 | 2026):
 
-- **2026** (default) — a neon board drawn with PixiJS: glass land panels, each snake a continuous tapered body with a head that turns, glowing balls, smooth movement between cells.
-- **1986** — the original 8-bit board: a blue frame, solid land and hatched trails, blinking step-by-step effects.
+- **2026** (default) — neon sci-fi: a PixiJS board with glass land panels, snakes as continuous tapered bodies with turning heads, glowing orbs and smooth movement between cells; capture waves, particles, danger glow, death and shockwave effects; chamfered panels, a round pad and Audiowide / Chakra Petch type.
+- **1986** — the original 8-bit look: a blue frame, solid land and hatched trails, a pixel font and blinking, step-by-step effects.
 
-Menus and HUD are still 8-bit for now. Reduced motion turns effects off in both looks (and makes 2026 move cell by cell).
+Reduced motion turns effects off in both looks (and makes the 2026 board move cell by cell).
 
 Built as a portfolio project and a game-design experiment: the rules are specified up front, the engine is pure and tested, and the bot is explainable.
 
