@@ -83,6 +83,9 @@ export class Pixi2026Renderer implements BoardRenderer {
       antialias: false,
       backgroundAlpha: 0,
       preference: this.preference,
+      // Выборочный импорт: без автозагрузки browserAll / webworkerAll (доступность, DOM,
+      // события, фильтры, спрайтшиты) — полю нужны только рендерер, спрайты и Graphics.
+      skipExtensionImports: true,
     })
     const canvas = this.renderer.canvas as HTMLCanvasElement
     canvas.className = 'board-canvas'

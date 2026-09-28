@@ -250,7 +250,11 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
           <EventLine lines={lines} />
         </header>
 
-        <div className="board-slot flex min-h-0 flex-1 items-center justify-center py-1">
+        <div
+          // 2026: рамка шире сетки на отступ (скос вне сетки) — слот заходит в поля экрана,
+          // чтобы сетка осталась ≥ 343 px на 375×667.
+          className={`board-slot flex min-h-0 flex-1 items-center justify-center py-1 ${settings.theme === '2026' ? 'board-slot-2026' : ''}`}
+        >
           <BoardView
             theme={settings.theme}
             snapshot={boardSnapshot}

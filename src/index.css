@@ -41,6 +41,9 @@ body {
 .board-fit {
   width: min(100cqw, 100cqh);
 }
+.board-slot-2026 {
+  margin-inline: calc(-1 * var(--c26-inset));
+}
 
 /* Поле: рамка 10px, прямые углы, сетка без зазоров; земля — заливка, след — штриховка. */
 .board-frame {
@@ -262,11 +265,13 @@ button:focus-visible {
 }
 
 /* Поле 2026: рамка-градиент со скошенными углами (VISUAL_2026.md раздел 2 «Форма»).
-   Фон, сетку, землю, змей и шарики рисует Pixi на canvas внутри рамки. */
+   Скос — только у рамки, ВНЕ сетки: сетка (canvas Pixi) — прямоугольник с отступом
+   --c26-inset от края рамки, и ни одна игровая клетка не обрезается и не закрывается.
+   Отступ ≥ скос/2 + линия рамки: угол сетки (d, d) лежит за внутренней диагональю
+   скоса x + y = 14 + 2√2 ≈ 16.8 при d = 9. */
 .board-2026 {
-  --inner-chamfer: calc(var(--c26-chamfer) - 1px);
   box-sizing: border-box;
-  padding: var(--c26-frame);
+  padding: var(--c26-inset);
   background: linear-gradient(135deg, var(--c26-cyan), var(--c26-violet) 55%, var(--c26-magenta));
   clip-path: polygon(
     var(--c26-chamfer) 0,
@@ -278,24 +283,23 @@ button:focus-visible {
   );
   contain: layout paint;
 }
-.board-2026::before,
-.board-canvas {
-  position: absolute;
-  left: var(--c26-frame);
-  top: var(--c26-frame);
-  clip-path: polygon(
-    var(--inner-chamfer) 0,
-    100% 0,
-    100% calc(100% - var(--inner-chamfer)),
-    calc(100% - var(--inner-chamfer)) 100%,
-    0 100%,
-    0 var(--inner-chamfer)
-  );
-}
-/* Пока грузится чанк Pixi — тёмное поле, а не градиент рамки. */
+/* Внутри линии рамки — тёмная подложка (она же видна, пока грузится чанк Pixi). */
 .board-2026::before {
   content: '';
-  right: var(--c26-frame);
-  bottom: var(--c26-frame);
+  position: absolute;
+  inset: var(--c26-frame);
   background: var(--c26-board-edge);
+  clip-path: polygon(
+    calc(var(--c26-chamfer) - 1px) 0,
+    100% 0,
+    100% calc(100% - var(--c26-chamfer) + 1px),
+    calc(100% - var(--c26-chamfer) + 1px) 100%,
+    0 100%,
+    0 calc(var(--c26-chamfer) - 1px)
+  );
+}
+.board-canvas {
+  position: absolute;
+  left: var(--c26-inset);
+  top: var(--c26-inset);
 }
