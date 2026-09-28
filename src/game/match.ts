@@ -175,7 +175,8 @@ export abstract class TickController<S, E> {
     this.update({
       state: result.state,
       events: result.events,
-      // После удара или уровня старые нажатия не относятся к новой позиции.
+      // Очередь очищается при потере жизни (SOLO_RULES 2.1) и после уровня: старое нажатие
+      // не должно вывести змейку с рамки сразу после отсчёта.
       queue: result.phase === 'RUNNING' ? result.queue : [],
       ticks: ticks + 1,
       phase: result.phase,

@@ -102,6 +102,39 @@ describe('SoloMatchController', () => {
     assertSoloInvariants(match.snapshot.state)
   })
 
+  it('a press queued before the hit is dropped: after the countdown the snake stays on the frame', () => {
+    // Голова (9,2) идёт DOWN, справа шарик (10,2). Нажаты RIGHT, UP: RIGHT въезжает в шарик,
+    // UP остаётся в очереди. Возрождение — (9,19) RIGHT (шарики у верха); UP увёл бы с рамки.
+    const initial = soloFromGrid(put(put(put(frameGrid(), 9, 1, ['t', '1']), 10, 2, ['o']), 15, 3, ['o']), {
+      vel: [
+        [1, 1],
+        [1, 1],
+      ],
+      direction: 'DOWN',
+    })
+    const { clock, match, finishCountdown } = setup(initial)
+    const end = finishCountdown()
+    match.steer('RIGHT')
+    match.steer('UP')
+    expect(match.snapshot.queue).toEqual(['RIGHT', 'UP'])
+    clock.set(end + TICK)
+    match.frame()
+    expect(match.snapshot.phase).toBe('LIFE_LOST')
+    expect(match.snapshot.events.find((e) => e.type === 'LIFE_LOST')).toMatchObject({ reason: 'BALL_HIT', at: { x: 10, y: 2 } })
+    expect(match.snapshot.queue).toEqual([])
+
+    clock.add(LIFE_LOST_MS)
+    match.frame()
+    expect(match.snapshot.state.player.head).toEqual({ x: 9, y: 19 })
+    expect(match.snapshot.queue).toEqual([])
+    clock.add(3000)
+    match.frame()
+    clock.add(TICK)
+    match.frame()
+    expect(match.snapshot.state.player.head).toEqual({ x: 10, y: 19 })
+    expect(match.snapshot.state.player.trail).toEqual([])
+  })
+
   it('pause during the LIFE_LOST flash: nothing moves, RESUME goes through 3-2-1 once', () => {
     const { clock, match, firstTick } = setup(aboutToBeHit())
     const hitAt = firstTick()
