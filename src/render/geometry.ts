@@ -79,6 +79,9 @@ export function polylineLength(points: readonly Pt[]): number {
  */
 export function dashPolyline(points: readonly Pt[], on: number, off: number, phase = 0): Pt[][] {
   const period = on + off
+  // Границы штрихов считаются от абсолютной длины дуги: шаг до следующей границы всегда
+  // не меньше EPS, поэтому цикл не застревает на погрешностях (клетка 22.6 px и т.п.).
+  const EPS = 1e-7
   const dashes: Pt[][] = []
   let current: Pt[] | null = null
   let s = phase
@@ -87,23 +90,27 @@ export function dashPolyline(points: readonly Pt[], on: number, off: number, pha
     const b = points[i]
     const len = Math.hypot(b.x - a.x, b.y - a.y)
     if (len === 0) continue
-    let t = 0
-    while (t < len) {
-      const pos = (((s + t) % period) + period) % period
-      const inDash = pos < on
-      const step = Math.min(len - t, inDash ? on - pos : period - pos)
-      const p0 = lerpPt(a, b, t / len)
-      const p1 = lerpPt(a, b, (t + step) / len)
+    const end = s + len
+    let pos = s
+    while (pos < end - EPS) {
+      let k = Math.floor(pos / period)
+      let local = pos - k * period
+      if (local >= period - EPS) {
+        k++
+        local = 0
+      }
+      const inDash = local < on - EPS
+      const next = Math.min(end, k * period + (inDash ? on : period))
       if (inDash) {
         if (!current) {
-          current = [p0]
+          current = [lerpPt(a, b, (pos - s) / len)]
           dashes.push(current)
         }
-        current.push(p1)
+        current.push(lerpPt(a, b, (next - s) / len))
       } else current = null
-      t += step
+      pos = next
     }
-    s += len
+    s = end
   }
   return dashes
 }

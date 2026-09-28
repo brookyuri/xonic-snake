@@ -150,3 +150,19 @@ describe('head rotation', () => {
     expect(Math.cos(headRotation(DIRECTION_ANGLE.UP, DIRECTION_ANGLE.LEFT, 1))).toBeCloseTo(-1)
   })
 })
+
+describe('dashes: robustness', () => {
+  it('terminates for non-representable dash lengths and phases (cell sizes like 22.6 px)', () => {
+    for (let cell = 14; cell < 30; cell += 0.37) {
+      const px = cell / 24
+      const pts = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ x: (i + 0.5) * cell, y: ((i % 2) + 0.5) * cell }))
+      for (const phase of [0, px * 7, px * 22 * 3, 1e-13, polylineLength(pts) / 3]) {
+        const on = 2 * px
+        const period = 7 * px
+        const dashes = dashPolyline(pts, on, 5 * px, phase)
+        const total = dashes.reduce((sum, d) => sum + polylineLength(d), 0)
+        expect(Math.abs(total - (polylineLength(pts) * on) / period)).toBeLessThan(on + 1e-6)
+      }
+    }
+  })
+})
