@@ -1,4 +1,5 @@
 @import './theme.css';
+@import './ui26/ui26.css';
 
 @tailwind base;
 @tailwind components;

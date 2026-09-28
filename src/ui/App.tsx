@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { GameScreen } from './GameScreen'
 import { HowToScreen } from './HowToScreen'
 import { MenuScreen } from './MenuScreen'
+import { Menu2026 } from '../ui26/Menu2026'
 import { SoloScreen } from './SoloScreen'
 import { readJSON, writeJSON } from './storage'
 import { loadSettings, saveSettings, type Settings } from './settings'
@@ -85,8 +86,9 @@ export function App() {
         <GameScreen settings={settings} onMenu={() => setScreen('menu')} onRendererFallback={fallbackTo1986} onSlowRenderer={offerClassic} />
       )
     }
+    const Menu = settings.theme === '2026' ? Menu2026 : MenuScreen
     return (
-      <MenuScreen
+      <Menu
         settings={settings}
         onSettingsChange={changeSettings}
         onPlay={() => setScreen('game')}

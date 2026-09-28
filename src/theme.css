@@ -58,19 +58,39 @@
 }
 
 /*
- * Тема "2026" (VISUAL_2026.md раздел 2): пока только рамка поля — само поле рисует Pixi
- * (цвета поля — src/render/pixi2026/palette.ts). Экраны 2026 — следующая сессия.
+ * Тема "2026" (VISUAL_2026.md раздел 2): все цвета, шрифты и формы экранов 2026. Поле рисует
+ * Pixi (его цвета — src/render/pixi2026/palette.ts, те же значения).
  */
 :root {
+  /* Фон и панели */
+  --c26-bg: #050814;
+  --c26-panel: #0a1328;
+  --c26-panel-2: #0d1c3d;
   --c26-board-edge: #060b1c;
+  --c26-hex: #173567;
+  --c26-track: #1b2a4d;
+  /* Акценты */
   --c26-cyan: #22e5ff;
+  --c26-cyan-soft: #8ff4ff;
+  --c26-blue: #2a5cff;
   --c26-violet: #7a5cff;
   --c26-magenta: #ff3df0;
+  --c26-magenta-soft: #ff8cf6;
+  --c26-red: #ff3355;
+  --c26-orange: #ffb020;
   --c26-gold: #ffd23f;
+  /* Текст */
+  --c26-text: #e6f1ff;
+  --c26-text-muted: #8fb3d9;
+  /* Логотип */
+  --c26-logo-snake: #ff5cf3;
+  --c26-slogan: #7fe9ff;
+  /* Формы */
   --c26-frame: 2px;
   --c26-chamfer: 14px;
   /* Отступ сетки от края рамки: скос целиком вне сетки. */
   --c26-inset: 9px;
+  /* Шрифты */
   --font-26: 'Chakra Petch', ui-sans-serif, system-ui, sans-serif;
   --font-26-logo: 'Audiowide', 'Chakra Petch', ui-sans-serif, sans-serif;
 }

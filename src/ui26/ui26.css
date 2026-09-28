@@ -1,0 +1,340 @@
+/*
+ * Экраны темы 2026 (VISUAL_2026.md раздел 4). Только классы с префиксом t26 / cut — тема 1986
+ * их не использует. Цвета — токены --c26-* из theme.css.
+ */
+
+/* Общий фон: bg + сотовая текстура + 2 пятна света за краями экрана (cyan и magenta/red). */
+.t26-screen {
+  --spot-2: rgba(255, 61, 240, 0.18);
+  height: 100dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  color: var(--c26-text);
+  font-family: var(--font-26);
+  background-color: var(--c26-bg);
+  background-image:
+    radial-gradient(circle 175px at -40px 60px, rgba(34, 229, 255, 0.2), rgba(34, 229, 255, 0)),
+    radial-gradient(circle 175px at calc(100% + 40px) calc(100% - 80px), var(--spot-2), rgba(0, 0, 0, 0)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.7' height='48'%3E%3Cpath d='M13.86 0 L27.7 8 L27.7 24 L13.86 32 L0 24 L0 8 Z M13.86 32 L13.86 48' fill='none' stroke='%23173567' stroke-opacity='0.5' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: auto, auto, 27.7px 48px;
+}
+.t26-screen.t26-duel {
+  --spot-2: rgba(255, 51, 85, 0.16);
+}
+
+/*
+ * Скошенные углы (раздел 2 «Форма»): внешний слой — рамка-градиент (--edge), внутренний
+ * (::before) — заливка (--fill) с тем же скосом, отступ --bw. Варианты: .cut — левый верхний
+ * и правый нижний углы, .cut-tl — только левый верхний, .cut-tr — только правый верхний.
+ */
+.cut,
+.cut-tl,
+.cut-tr {
+  --cut: 10px;
+  --bw: 1.5px;
+  --edge: linear-gradient(135deg, var(--c26-cyan), var(--c26-blue));
+  --fill: var(--c26-panel);
+  position: relative;
+  isolation: isolate;
+  background: var(--edge);
+}
+.cut::before,
+.cut-tl::before,
+.cut-tr::before {
+  content: '';
+  position: absolute;
+  inset: var(--bw);
+  z-index: -1;
+  background: var(--fill);
+}
+.cut {
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
+.cut::before {
+  clip-path: polygon(
+    calc(var(--cut) - 0.6px) 0,
+    100% 0,
+    100% calc(100% - var(--cut) + 0.6px),
+    calc(100% - var(--cut) + 0.6px) 100%,
+    0 100%,
+    0 calc(var(--cut) - 0.6px)
+  );
+}
+.cut-tl {
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+.cut-tl::before {
+  clip-path: polygon(calc(var(--cut) - 0.6px) 0, 100% 0, 100% 100%, 0 100%, 0 calc(var(--cut) - 0.6px));
+}
+.cut-tr {
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+.cut-tr::before {
+  clip-path: polygon(0 0, calc(100% - var(--cut) + 0.6px) 0, 100% calc(var(--cut) - 0.6px), 100% 100%, 0 100%);
+}
+
+/* Свечение DOM-элементов — на обёртке (clip-path обрезал бы собственную тень). */
+.t26-glow-cyan {
+  filter: drop-shadow(0 0 10px rgba(34, 229, 255, 0.45));
+}
+.t26-glow-magenta {
+  filter: drop-shadow(0 0 10px rgba(255, 61, 240, 0.4));
+}
+.t26-glow-red {
+  filter: drop-shadow(0 0 10px rgba(255, 51, 85, 0.4));
+}
+
+/* Кнопка 2026: скос 10px, рамка cyan → violet, нажатие — светлее заливка. */
+.t26-btn {
+  --edge: linear-gradient(135deg, var(--c26-cyan), var(--c26-violet));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  font-family: var(--font-26);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c26-text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.t26-btn:active:not(:disabled) {
+  --fill: var(--c26-panel-2);
+}
+.t26-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.t26-btn-primary {
+  color: var(--c26-cyan);
+}
+
+/* Фокус с клавиатуры: кольцо cyan поверх скоса (outline обрезается clip-path — рисуем тенью обёртки). */
+.t26-screen button:focus-visible,
+.t26-screen input:focus-visible {
+  outline: 2px solid var(--c26-gold);
+  outline-offset: 2px;
+}
+.t26-screen .cut:focus-visible,
+.t26-screen .cut-tl:focus-visible,
+.t26-screen .cut-tr:focus-visible {
+  --edge: var(--c26-gold);
+}
+
+.t26-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--c26-text-muted);
+}
+.t26-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Логотип XONIC / SNAKE и слоган. */
+.t26-logo {
+  font-family: var(--font-26-logo);
+  font-style: italic;
+  line-height: 1;
+  background: linear-gradient(180deg, #ffffff 0%, #9ff6ff 38%, #22a9ff 62%, #d63df0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(34, 229, 255, 0.55));
+}
+.t26-logo-snake {
+  font-family: var(--font-26-logo);
+  color: var(--c26-logo-snake);
+  letter-spacing: 12px;
+  text-shadow: 0 0 12px rgba(255, 92, 243, 0.6);
+}
+.t26-slogan {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: var(--c26-slogan);
+}
+
+/* PLAY: шестиугольник (скос 18px слева и справа), рамка cyan → violet → magenta. */
+.t26-play {
+  --edge: linear-gradient(90deg, var(--c26-cyan), var(--c26-violet), var(--c26-magenta));
+  --fill: linear-gradient(180deg, #0d1c3d, #070d1f);
+  position: relative;
+  isolation: isolate;
+  background: var(--edge);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 18px 100%, 0 50%);
+}
+.t26-play::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--fill);
+  clip-path: polygon(17px 0, calc(100% - 17px) 0, 100% 50%, calc(100% - 17px) 100%, 17px 100%, 0 50%);
+}
+.t26-play:active {
+  --fill: linear-gradient(180deg, #13295a, #0a1430);
+}
+
+/* Слайдер SPEED на 3 позиции: трек, заполнение cyan → violet, бегунок белый с кольцом cyan. */
+.t26-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+.t26-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--c26-cyan), var(--c26-violet)) 0 0 / var(--fill-pct, 50%) 100% no-repeat, var(--c26-track);
+}
+.t26-range::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--c26-track);
+}
+.t26-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--c26-cyan), var(--c26-violet));
+}
+.t26-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px var(--c26-cyan), 0 0 10px rgba(34, 229, 255, 0.7);
+}
+.t26-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px var(--c26-cyan), 0 0 10px rgba(34, 229, 255, 0.7);
+}
+
+/* Круглый пэд Ø168: радиальный градиент, обводка cyan α0.6, внешнее свечение. */
+.t26-pad {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #10224a 0%, #0a1328 60%, #060b1c 100%);
+  border: 1.5px solid rgba(34, 229, 255, 0.6);
+  box-shadow: 0 0 18px rgba(34, 229, 255, 0.35), inset 0 0 18px rgba(34, 229, 255, 0.12);
+  box-sizing: border-box;
+}
+.t26-pad-btn {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c26-cyan-soft);
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: none;
+}
+.t26-pad-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.t26-pad-btn[data-active='true'] {
+  color: #ffffff;
+  filter: drop-shadow(0 0 6px rgba(143, 244, 255, 0.9));
+}
+.t26-pad-btn:active:not(:disabled) {
+  background: rgba(34, 229, 255, 0.12);
+}
+.t26-pad-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #b8f8ff 0%, #22b8ff 55%, #0b3f8f 100%);
+  box-shadow: 0 0 14px rgba(34, 184, 255, 0.55);
+  pointer-events: none;
+}
+
+/* Прогресс-полоска HUD (4px). */
+.t26-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c26-track);
+  overflow: hidden;
+  position: relative;
+}
+.t26-bar > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+}
+
+/* Жизни-ромбы 12px: целая — cyan со свечением, потерянная — #1b2a4d. */
+.t26-life {
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  background: var(--c26-track);
+}
+.t26-life-full {
+  background: var(--c26-cyan);
+  box-shadow: 0 0 6px rgba(34, 229, 255, 0.8);
+}
+
+/* Строка событий 2026: 22px, gold со свечением; угроза — red; Solo — magenta-soft. */
+.t26-events {
+  height: 22px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 22px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Отсчёт 3-2-1: 96px со свечением cyan. */
+.t26-countdown {
+  font-family: var(--font-26);
+  font-weight: 700;
+  font-size: 96px;
+  line-height: 1;
+  color: var(--c26-cyan-soft);
+  text-shadow: 0 0 18px rgba(34, 229, 255, 0.8), 0 0 36px rgba(34, 229, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+.t26-scrim {
+  background: rgba(5, 8, 20, 0.72);
+}
+
+/* Лёгкое «дыхание» героя-змеи в меню; reduced motion — статично. */
+@media (prefers-reduced-motion: reduce) {
+  .t26-breathe {
+    animation: none !important;
+  }
+}
+
+@keyframes hero-breathe {
+  from {
+    transform: scaleY(0.88);
+  }
+  to {
+    transform: scaleY(1.1);
+  }
+}
