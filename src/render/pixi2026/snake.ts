@@ -59,9 +59,14 @@ interface LayerSpec {
   cap: 'round' | 'butt'
 }
 
+/** Номер слоя угрозы в LAYERS: его прозрачность меняется на кадре. */
+const DANGER_LAYER = 2
+
 const LAYERS: LayerSpec[] = [
   { color: 'glow', alpha: 0.12, factor: 1, extra: 8, cap: 'round' },
   { color: 'glow', alpha: 0.22, factor: 1, extra: 4, cap: 'round' },
+  // Угроза следу: свечение, прозрачность пульсирует на кадре (по умолчанию 0).
+  { color: 'danger', alpha: 1, factor: 1, extra: 10, cap: 'round' },
   { color: 'outline', alpha: 1, factor: 1, extra: 2.5, cap: 'round' },
   { color: 'body', alpha: 1, factor: 1, extra: 0, cap: 'round' },
   { color: 'deep', alpha: 0.6, factor: 0.5, extra: 0, dash: [2, 5], fromCell1: true, cap: 'butt' },
@@ -79,6 +84,7 @@ function tracePath(g: Graphics, points: readonly Pt[]): void {
  * сужения хвоста), dashPhase — длина тела от клетки 1 до начала куска (пунктир не сдвигается).
  */
 function drawBody(
+  specs: readonly LayerSpec[],
   layers: readonly Graphics[],
   points: readonly Pt[],
   startIndex: number,
@@ -87,7 +93,7 @@ function drawBody(
   pal: SnakePalette
 ): void {
   if (points.length < 2) return
-  LAYERS.forEach((spec, li) => {
+  specs.forEach((spec, li) => {
     const g = layers[li]
     let pts = points
     let first = startIndex
@@ -182,6 +188,13 @@ class SegmentLayer {
   }
 }
 
+/** Смерть: вспышка тела белым, затем частицы; голова гаснет последней. */
+export const DEATH_FLASH_MS = 120
+const HEAD_FADE_FROM_MS = 350
+const HEAD_FADE_MS = 400
+/** Угроза: прозрачность свечения 0.25 ↔ 0.6, период 400 мс. */
+const DANGER_PERIOD_MS = 400
+
 /**
  * Одна змея: неподвижная часть тела перестраивается только на тике. Последний участок —
  * прямой отрезок до интерполированной головы — это прямоугольники-спрайты: на кадре
@@ -190,10 +203,14 @@ class SegmentLayer {
  */
 export class SnakeSprite {
   readonly container = new Container()
+  /** Всё тело без головы: для смерти и затемнения. */
+  private readonly body = new Container()
+  private readonly specs: LayerSpec[]
   private readonly fixed: Graphics[]
   private readonly moving: SegmentLayer[]
   private readonly neck = new Container()
   private readonly neckLayers: Graphics[]
+  private readonly flash = new Graphics()
   private readonly head: Container
   private readonly tongue: Graphics
   private readonly pal: SnakePalette
@@ -207,6 +224,11 @@ export class SnakeSprite {
   private angleFrom = 0
   private angleTo = 0
   private angle = 0
+  private danger = false
+  /** Момент смерти (0 — жива) и ход, на котором умерла: новый ход — снова жива (возрождение). */
+  private diedAt = 0
+  private diedKey = ''
+  private lastEnd: Pt = { x: 0, y: 0 }
 
   constructor(
     id: PlayerId,
@@ -215,18 +237,23 @@ export class SnakeSprite {
   ) {
     this.pal = SNAKE[id]
     this.tonguePhase = id === 'P1' ? 0 : TONGUE_PERIOD_MS / 2
+    // Reduced motion: вместо пульсации — статичная красная обводка тела (уже, чем свечение).
+    this.specs = LAYERS.map((spec, i) => (i === DANGER_LAYER && reducedMotion ? { ...spec, extra: 6 } : spec))
     // Слои чередуются: неподвижная часть слоя, затем её продолжение — так последний участок
     // не перекрывает кольца и блик соседнего отрезка.
-    this.fixed = LAYERS.map(() => new Graphics())
-    this.moving = LAYERS.map((spec) => new SegmentLayer(this.pal[spec.color] as number, spec.alpha))
-    LAYERS.forEach((_, i) => this.container.addChild(this.fixed[i], this.moving[i].container))
-    this.neckLayers = LAYERS.map(() => new Graphics())
+    this.fixed = this.specs.map(() => new Graphics())
+    this.moving = this.specs.map((spec) => new SegmentLayer(this.pal[spec.color] as number, spec.alpha))
+    this.specs.forEach((_, i) => this.body.addChild(this.fixed[i], this.moving[i].container))
+    this.neckLayers = this.specs.map(() => new Graphics())
     this.neck.addChild(...this.neckLayers)
+    this.body.addChild(this.neck)
     const { head, tongue } = buildHead(this.pal)
     this.head = head
     this.tongue = tongue
-    this.container.addChild(this.neck, this.head)
+    this.flash.alpha = 0
+    this.container.addChild(this.body, this.flash, this.head)
     this.setMetrics(m)
+    this.applyDanger(0)
   }
 
   setMetrics(m: SnakeMetrics): void {
@@ -234,13 +261,14 @@ export class SnakeSprite {
     this.head.scale.set(m.headScale)
     // Шея в своих координатах: от 0.6 клетки позади до головы, ось X — вперёд.
     for (const g of this.neckLayers) g.clear()
-    drawBody(this.neckLayers, [{ x: -0.6 * m.cell, y: 0 }, { x: 0, y: 0 }], 2, 0, m, this.pal)
+    drawBody(this.specs, this.neckLayers, [{ x: -0.6 * m.cell, y: 0 }, { x: 0, y: 0 }], 2, 0, m, this.pal)
     this.baseKey = ''
-    if (this.view) this.update(this.view)
+    if (this.view) this.update(this.view, this.danger)
   }
 
-  update(view: SnakeView): void {
+  update(view: SnakeView, danger = false): void {
     this.view = view
+    this.danger = danger
     const target = DIRECTION_ANGLE[view.direction]
     const moveKey = `${view.prevHead.x},${view.prevHead.y}>${view.head.x},${view.head.y}`
     if (view.prevHead.x === view.head.x && view.prevHead.y === view.head.y) {
@@ -252,21 +280,74 @@ export class SnakeSprite {
       this.angleTo = target
     }
     this.moveKey = moveKey
+    // Возрождение (Solo): змейка уже в другом месте — снова видна.
+    if (this.diedAt > 0 && moveKey !== this.diedKey) this.revive()
 
     const key = `${this.m.cell}|${view.trail.map((p) => `${p.x},${p.y}`).join(' ')}|${view.head.x},${view.head.y}`
     if (key === this.baseKey) return
     this.baseKey = key
     this.base = bodyBase(view.trail, view.head, this.m.cell)
     for (const g of this.fixed) g.clear()
-    drawBody(this.fixed, this.base, 0, 0, this.m, this.pal)
+    drawBody(this.specs, this.fixed, this.base, 0, 0, this.m, this.pal)
     this.baseDashLength = this.base.length > 1 ? polylineLength(this.base.slice(1)) : 0
+  }
+
+  /**
+   * Смерть (событие движка DIED / LIFE_LOST). Возвращает точки тела для частиц — по 3 на
+   * клетку. Reduced motion: тело просто темнеет, без вспышки и частиц.
+   */
+  die(now: number): Pt[] {
+    if (!this.view || this.diedAt > 0) return []
+    this.diedAt = now
+    this.diedKey = this.moveKey
+    const end = interpolateCell(this.view.prevHead, this.view.head, 1, this.m.cell)
+    this.lastEnd = end
+    this.angle = this.angleTo
+    if (this.reducedMotion) return []
+    const line = [...this.base, end]
+    this.flash.clear()
+    if (line.length > 1) {
+      this.flash.moveTo(line[0].x, line[0].y)
+      for (let i = 1; i < line.length; i++) this.flash.lineTo(line[i].x, line[i].y)
+      this.flash.stroke({ width: this.m.width + 2.5 * this.m.px, color: 0xffffff, cap: 'round', join: 'round' })
+    } else this.flash.circle(end.x, end.y, this.m.width / 2).fill(0xffffff)
+    const points: Pt[] = []
+    for (let i = 1; i < line.length; i++) {
+      for (const t of [0.2, 0.55, 0.85]) {
+        points.push({ x: line[i - 1].x + (line[i].x - line[i - 1].x) * t, y: line[i - 1].y + (line[i].y - line[i - 1].y) * t })
+      }
+    }
+    if (points.length === 0) points.push(end)
+    return points
+  }
+
+  /** Цвета частиц смерти: тело, блик, кольца, белый. */
+  get deathColors(): number[] {
+    return [this.pal.body, this.pal.sheen, this.pal.ring, 0xffffff]
+  }
+
+  private revive(): void {
+    this.diedAt = 0
+    this.body.alpha = 1
+    this.head.alpha = 1
+    this.flash.alpha = 0
+  }
+
+  private applyDanger(now: number): void {
+    const a = !this.danger || this.diedAt > 0 ? 0 : this.reducedMotion ? 1 : 0.425 + 0.175 * Math.sin((now / DANGER_PERIOD_MS) * Math.PI * 2)
+    this.fixed[DANGER_LAYER].alpha = a
+    this.moving[DANGER_LAYER].container.alpha = a
+    this.neckLayers[DANGER_LAYER].alpha = a
   }
 
   frame(alpha: number, now: number): void {
     const view = this.view
     if (!view) return
-    const end = interpolateCell(view.prevHead, view.head, alpha, this.m.cell)
-    this.angle = headRotation(this.angleFrom, this.angleTo, alpha)
+    const dead = this.diedAt > 0
+    // Мёртвая змея стоит в клетке удара.
+    const end = dead ? this.lastEnd : interpolateCell(view.prevHead, view.head, alpha, this.m.cell)
+    this.lastEnd = end
+    if (!dead) this.angle = headRotation(this.angleFrom, this.angleTo, alpha)
     const home = this.base.length === 0
     // alpha, а не visible — см. SegmentLayer.
     this.neck.alpha = home ? 1 : 0
@@ -275,7 +356,20 @@ export class SnakeSprite {
     this.drawMoving(home ? null : this.base[this.base.length - 1], end)
     this.head.position.set(end.x, end.y)
     this.head.rotation = this.angle
-    this.tongue.alpha = !this.reducedMotion && (now + this.tonguePhase) % TONGUE_PERIOD_MS < TONGUE_SHOWN_MS ? 1 : 0
+    this.tongue.alpha = !dead && !this.reducedMotion && (now + this.tonguePhase) % TONGUE_PERIOD_MS < TONGUE_SHOWN_MS ? 1 : 0
+    this.applyDanger(now)
+    if (dead) this.dying(now - this.diedAt)
+  }
+
+  private dying(t: number): void {
+    if (this.reducedMotion) {
+      this.body.alpha = 0.35
+      this.head.alpha = 0.35
+      return
+    }
+    this.flash.alpha = t < DEATH_FLASH_MS ? 1 : 0
+    this.body.alpha = t < DEATH_FLASH_MS ? 1 : 0
+    this.head.alpha = t < HEAD_FADE_FROM_MS ? 1 : Math.max(0, 1 - (t - HEAD_FADE_FROM_MS) / HEAD_FADE_MS)
   }
 
   /** Последний участок: от конца неподвижной части до интерполированной головы. */
@@ -287,7 +381,7 @@ export class SnakeSprite {
     }
     const angle = Math.atan2(end.y - last.y, end.x - last.x)
     const index = this.base.length - 1
-    LAYERS.forEach((spec, i) => {
+    this.specs.forEach((spec, i) => {
       // Слои «от клетки 1» не рисуются на первом отрезке тела.
       if (spec.fromCell1 && index === 0) return this.moving[i].hide()
       const width = segmentWidth(index, 1) * spec.factor * this.m.width + spec.extra * this.m.px

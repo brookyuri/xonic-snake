@@ -66,8 +66,11 @@
   --c26-cyan: #22e5ff;
   --c26-violet: #7a5cff;
   --c26-magenta: #ff3df0;
+  --c26-gold: #ffd23f;
   --c26-frame: 2px;
   --c26-chamfer: 14px;
   /* Отступ сетки от края рамки: скос целиком вне сетки. */
   --c26-inset: 9px;
+  --font-26: 'Chakra Petch', ui-sans-serif, system-ui, sans-serif;
+  --font-26-logo: 'Audiowide', 'Chakra Petch', ui-sans-serif, sans-serif;
 }

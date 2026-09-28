@@ -4,6 +4,7 @@ import {
   bodyPolyline,
   cellCenter,
   dashIntervals,
+  waveDelays,
   dashPolyline,
   DIRECTION_ANGLE,
   headRotation,
@@ -180,5 +181,21 @@ describe('dashIntervals (straight moving segment)', () => {
         expect(b).toBeCloseTo(expected[i][1])
       })
     }
+  })
+})
+
+describe('capture wave delays', () => {
+  it('grow with the distance from the closing point; the farthest cell lights at the end of the wave', () => {
+    const cells = [{ x: 5, y: 5 }, { x: 6, y: 5 }, { x: 8, y: 5 }, { x: 5, y: 9 }]
+    const d = waveDelays(cells, { x: 5, y: 5 }, 300)
+    expect(d[0]).toBe(0)
+    expect(d[1]).toBeCloseTo(75)
+    expect(d[2]).toBeCloseTo(225)
+    expect(d[3]).toBeCloseTo(300)
+    expect(Math.max(...d)).toBeLessThanOrEqual(300)
+  })
+
+  it('a single cell at the closing point lights at once', () => {
+    expect(waveDelays([{ x: 1, y: 1 }], { x: 1, y: 1 }, 300)).toEqual([0])
   })
 })

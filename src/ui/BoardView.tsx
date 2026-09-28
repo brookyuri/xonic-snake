@@ -83,6 +83,8 @@ export function BoardView({
 
     const start = (r: BoardRenderer) => {
       mounted = r
+      // Только dev-сборка: рендерер для автоматических проверок в браузере.
+      if (import.meta.env.DEV && theme !== '1986') (window as { __tsRenderer?: unknown }).__tsRenderer = r
       renderer.current = r
       lastTick.current = latest.current.tick
       r.update(latest.current.snapshot, [])
@@ -97,7 +99,10 @@ export function BoardView({
         raf = requestAnimationFrame(loop)
         const started = performance.now()
         const t = latest.current.timing
-        if (t?.running && started >= t.at + t.tickMs - FRAME_GUARD_MS) return
+        // Только в узком окне у ожидаемого тика: после отсчёта или паузы последний тик давний,
+        // и правило «перед тиком» не должно гасить все кадры до первого тика.
+        const due = t ? t.at + t.tickMs : 0
+        if (t?.running && started >= due - FRAME_GUARD_MS && started < due + FRAME_GUARD_MS * 2) return
         odd = !odd
         if (avg > SLOW_FRAME_MS && odd) return
         r.frame(t && !reduced ? tickAlpha(started, t.at, t.tickMs, t.running) : 1)

@@ -121,3 +121,41 @@ export function ballGlowTexture(cell: number, res: number): Texture {
     }
   })
 }
+
+/** Яркая панель волны захвата (VISUAL_2026.md «Эффекты»); для AI — в красных тонах. */
+export function flashTexture(cell: number, owner: 'P1' | 'P2', res: number): Texture {
+  return canvasTexture(cell, cell, res, (ctx) => {
+    const x = 1
+    const w = cell - 2
+    const g = ctx.createLinearGradient(x, x, x + w, x + w)
+    g.addColorStop(0, owner === 'P1' ? 'rgba(200,252,255,0.85)' : 'rgba(255,214,222,0.85)')
+    g.addColorStop(1, owner === 'P1' ? 'rgba(34,229,255,0.45)' : 'rgba(255,51,85,0.45)')
+    ctx.beginPath()
+    roundRect(ctx, x, x, w, w, 3)
+    ctx.fillStyle = g
+    ctx.fill()
+    ctx.strokeStyle = owner === 'P1' ? 'rgba(220,255,255,0.9)' : 'rgba(255,225,232,0.9)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+  })
+}
+
+/** Частицы: белый квадрат и белый треугольник (цвет — tint спрайта). */
+export function particleTextures(res: number): Texture[] {
+  const size = 8
+  return [
+    canvasTexture(size, size, res, (ctx) => {
+      ctx.fillStyle = '#fff'
+      ctx.fillRect(0, 0, size, size)
+    }),
+    canvasTexture(size, size, res, (ctx) => {
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.moveTo(size / 2, 0)
+      ctx.lineTo(size, size)
+      ctx.lineTo(0, size)
+      ctx.closePath()
+      ctx.fill()
+    }),
+  ]
+}

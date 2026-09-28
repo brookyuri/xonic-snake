@@ -132,6 +132,16 @@ export function dashIntervals(length: number, on: number, off: number, phase = 0
   return out
 }
 
+/**
+ * Волна захвата: задержка загорания клетки пропорциональна расстоянию от точки замыкания,
+ * самая дальняя клетка загорается через total мс (вся волна ≤ total).
+ */
+export function waveDelays(cells: readonly Pos[], origin: Pos, total: number): number[] {
+  const dist = cells.map((c) => Math.hypot(c.x - origin.x, c.y - origin.y))
+  const max = Math.max(1, ...dist)
+  return dist.map((d) => (d / max) * total)
+}
+
 /** Угол направления (ось y вниз): RIGHT 0, DOWN π/2, LEFT π, UP −π/2. */
 export const DIRECTION_ANGLE: Record<Direction, number> = {
   RIGHT: 0,

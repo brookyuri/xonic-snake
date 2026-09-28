@@ -39,6 +39,8 @@ export interface SnakePalette {
   eye: number
   pupil: number
   tongue: number
+  /** Свечение при угрозе следу. */
+  danger: number
 }
 
 export const SNAKE: Record<PlayerId, SnakePalette> = {
@@ -53,6 +55,7 @@ export const SNAKE: Record<PlayerId, SnakePalette> = {
     eye: 0xfff6a8,
     pupil: 0x041022,
     tongue: 0xff3df0,
+    danger: 0xff3355,
   },
   P2: {
     glow: 0xff3355,
@@ -65,5 +68,6 @@ export const SNAKE: Record<PlayerId, SnakePalette> = {
     eye: 0xfff3a0,
     pupil: 0x1a0208,
     tongue: 0xffb020,
+    danger: 0xffd23f,
   },
 }

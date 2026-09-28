@@ -93,6 +93,12 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
 
   useFrameLoop(controller)
   useAutoPause(controller)
+
+  // Только dev-сборка: контроллер для автоматических проверок в браузере (как в Solo).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    ;(window as { __tsMatch?: unknown }).__tsMatch = controller
+  }, [controller])
   useMatchKeys(controller)
 
   /**

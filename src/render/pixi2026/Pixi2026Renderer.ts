@@ -3,7 +3,8 @@ import type { Owner, PlayerId } from '../../engine/types'
 import type { BoardRenderer, BoardVariant, MountOptions, RenderEvent, RenderSnapshot } from '../types'
 import { LAND } from './palette'
 import { BallSprites } from './balls'
-import { SnakeSprite, snakeMetrics } from './snake'
+import { Effects } from './effects'
+import { DEATH_FLASH_MS, SnakeSprite, snakeMetrics } from './snake'
 import { boardTexture, landTexture } from './textures'
 
 export type PixiPreference = 'webgl' | 'canvas'
@@ -46,6 +47,9 @@ export class Pixi2026Renderer implements BoardRenderer {
   private balls: BallSprites | null = null
   private readonly hit = new Graphics()
   private hitStartedAt = 0
+  private effects: Effects | null = null
+  /** Последняя потеря жизни — удар шариком: вместо рамки клетки — ударная волна. */
+  private ballHit = false
 
   private res = 1
   private size = 0
@@ -73,6 +77,11 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.reducedMotion = opts.reducedMotion
     this.balls = new BallSprites(this.reducedMotion)
     this.ballLayer.addChild(this.balls.container)
+    this.effects = new Effects(this.reducedMotion)
+    this.effects.mountLabels(el)
+    // Волна захвата — над землёй, под змеями; частицы и ударные волны — поверх всего.
+    this.stage.addChildAt(this.effects.under, this.stage.getChildIndex(this.landSprite) + 1)
+    this.stage.addChild(this.effects.over)
     this.renderer = await autoDetectRenderer({
       width: this.size,
       height: this.size,
@@ -112,6 +121,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     const m = snakeMetrics(cell, s.variant)
     for (const snake of this.snakes.values()) snake.setMetrics(m)
     this.balls!.setCell(cell, this.res)
+    this.effects!.setCell(cell, this.res, this.baseTexture, this.cols)
 
     this.land?.destroy(true)
     this.land = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
@@ -151,7 +161,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     target.destroy(true)
   }
 
-  update(s: RenderSnapshot, _events: readonly RenderEvent[]): void {
+  update(s: RenderSnapshot, events: readonly RenderEvent[]): void {
     if (!this.renderer) return
     const first = !this.snapshot
     if (s.variant !== this.variant || s.cols !== this.cols || s.rows !== this.rows || first) this.layout(s)
@@ -160,7 +170,31 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.drawLand(s)
     this.updateSnakes(s)
     this.balls!.update(s.balls)
+    this.playEvents(s, events)
     this.updateHit(s)
+  }
+
+  /**
+   * Эффекты — только по событиям движка этого тика (VISUAL_2026.md «Эффекты»):
+   * CAPTURED — волна, частицы, «+N»; DIED / LIFE_LOST — смерть змеи; удар шариком —
+   * ударная волна вместо рамки клетки.
+   */
+  private playEvents(s: RenderSnapshot, events: readonly RenderEvent[]): void {
+    const now = performance.now()
+    for (const e of events) {
+      if (e.type === 'CAPTURED') {
+        const owner: PlayerId = 'player' in e ? e.player : 'P1'
+        const snake = s.snakes.find((v) => v.id === owner)
+        this.effects!.capture(e.cells, snake?.head ?? e.cells[0], owner, now)
+      } else if (e.type === 'DIED' || e.type === 'LIFE_LOST') {
+        const snake = this.snakes.get(e.type === 'DIED' ? e.player : 'P1')
+        if (snake) this.effects!.scatter(snake.die(now), snake.deathColors, now + DEATH_FLASH_MS)
+        if (e.type === 'LIFE_LOST') {
+          this.ballHit = e.reason === 'BALL_HIT'
+          if (this.ballHit) this.effects!.shockwave(e.at, now)
+        }
+      }
+    }
   }
 
   /** Змеи: BLUE, затем RED — RED сверху (как в 1986). */
@@ -174,7 +208,8 @@ export class Pixi2026Renderer implements BoardRenderer {
         this.snakes.set(view.id, snake)
         this.snakeLayer.addChild(snake.container)
       }
-      snake.update(view)
+      // Угроза — только следу человека (P1).
+      snake.update(view, view.id === 'P1' && (s.danger ?? false))
     }
     for (const [id, snake] of this.snakes) {
       if (seen.has(id)) continue
@@ -229,10 +264,12 @@ export class Pixi2026Renderer implements BoardRenderer {
 
   /** Клетка удара / столкновения: рамка мигает 3 раза, затем остаётся (reduced motion — сразу). */
   private updateHit(s: RenderSnapshot): void {
-    const cells = s.highlight ?? []
+    // Удар шариком показывает ударная волна, рамка клетки — только для остальных столкновений.
+    const cells = this.ballHit ? [] : (s.highlight ?? [])
     this.hit.clear()
     if (cells.length === 0) {
       this.hitStartedAt = 0
+      if (!s.highlight?.length) this.ballHit = false
       return
     }
     if (this.hitStartedAt === 0) this.hitStartedAt = performance.now()
@@ -248,6 +285,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     const a = this.reducedMotion ? 1 : alpha
     for (const snake of this.snakes.values()) snake.frame(a, now)
     this.balls!.frame(a, now)
+    this.effects!.frame(now)
     if (this.hitStartedAt > 0) {
       const t = now - this.hitStartedAt
       // alpha, а не visible: смена visible пересобирает список отрисовки сцены.
@@ -273,6 +311,8 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.snakes.clear()
     this.balls?.destroy()
     this.balls = null
+    this.effects?.destroy()
+    this.effects = null
     this.stage.destroy({ children: true })
     this.stamp.destroy({ children: true })
     this.renderer?.destroy({ removeView: true })

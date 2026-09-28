@@ -303,3 +303,18 @@ button:focus-visible {
   left: var(--c26-inset);
   top: var(--c26-inset);
 }
+
+/* «+N» над точкой захвата (VISUAL_2026.md «Эффекты»): gold, всплывает и гаснет за 800 мс.
+   Элемент создаёт и двигает рендерер 2026 по времени кадра. */
+.fx-plus {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  font-family: var(--font-26);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--c26-gold);
+  text-shadow: 0 0 8px rgba(255, 210, 63, 0.7);
+  font-variant-numeric: tabular-nums;
+}
