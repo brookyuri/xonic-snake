@@ -73,7 +73,7 @@ Measured on 2026-09-29 on this repository (`npm test`, `npm run bench`, a produc
 - The UI turns engine events into readable feedback: head movement, capture flashes, a one-line round summary, a trail-danger warning and an explained end screen.
 - Playtest stats are kept in `localStorage` (`ts_stats` for Duel, `ts_solo` for Solo, `ts_games` for every game) and can be exported as JSON from the menu.
 
-The rules are the single source of truth: see [GAME_RULES.md](GAME_RULES.md) for Duel and [SOLO_RULES.md](SOLO_RULES.md) for Solo. The 2026 look is specified in [VISUAL_2026.md](VISUAL_2026.md). Product context is in [PRD.md](PRD.md).
+The rules are the single source of truth: see [GAME_RULES.md](GAME_RULES.md) for Duel and [SOLO_RULES.md](SOLO_RULES.md) for Solo. The 2026 look is specified in [VISUAL_2026.md](VISUAL_2026.md). The original turn-based concept is kept as history in [docs/history/PRD-v0.1.md](docs/history/PRD-v0.1.md).
 
 ## Design decisions
 
@@ -87,7 +87,7 @@ The rules are the single source of truth: see [GAME_RULES.md](GAME_RULES.md) for
 
 ## How it was built
 
-Development followed specifications written in Markdown before the code: the rules ([GAME_RULES.md](GAME_RULES.md), [SOLO_RULES.md](SOLO_RULES.md)) with numbered test scenarios, the visual spec ([VISUAL_2026.md](VISUAL_2026.md)) and the product brief ([PRD.md](PRD.md)). Work went in short sessions, each with a written task, per-step commits and a report with measurements (stress tests, frame and tick timing, bundle size, pixel comparison of the 1986 screens).
+Development followed specifications written in Markdown before the code: the rules ([GAME_RULES.md](GAME_RULES.md), [SOLO_RULES.md](SOLO_RULES.md)) with numbered test scenarios, the visual spec ([VISUAL_2026.md](VISUAL_2026.md)) and the original product brief ([docs/history/PRD-v0.1.md](docs/history/PRD-v0.1.md)). Work went in short sessions, each with a written task, per-step commits and a report with measurements (stress tests, frame and tick timing, bundle size, pixel comparison of the 1986 screens).
 
 The code was written with [Claude Code](https://claude.com/claude-code).
 

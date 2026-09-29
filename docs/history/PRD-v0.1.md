@@ -1,3 +1,5 @@
+> Historical: the original turn-based concept. Current rules: [GAME_RULES.md](../../GAME_RULES.md), [SOLO_RULES.md](../../SOLO_RULES.md).
+
 # Territory Snake
 
 ## Product Requirements Document — MVP v0.1
