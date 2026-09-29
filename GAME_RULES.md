@@ -1,4 +1,4 @@
-# Territory Snake — GAME_RULES.md
+# Xonic Snake — GAME_RULES.md
 
 Версия правил: **v0.5** (заменяет разделы 7–13 PRD v0.1)
 

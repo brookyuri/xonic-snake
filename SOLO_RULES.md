@@ -1,4 +1,4 @@
-# Territory Snake — SOLO_RULES.md
+# Xonic Snake — SOLO_RULES.md
 
 Версия: **v0.2** · режим **Solo** (одиночная игра против шариков).
 
