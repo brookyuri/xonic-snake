@@ -9,7 +9,9 @@ export function PauseButton({ disabled, onPause }: { disabled: boolean; onPause:
       data-testid="pause"
       disabled={disabled}
       onClick={onPause}
-      className="-my-2 flex h-11 w-11 shrink-0 items-center justify-center btn text-ts-text"
+      // 44px в строке HUD высотой 28px: выступ −4px сверху и −12px снизу (не −8/−8) — верх кнопки
+      // не ближе 8px к краю экрана, высота строки и положение поля те же.
+      className="-mb-3 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center btn text-ts-text"
     >
       <svg viewBox="0 0 7 7" shapeRendering="crispEdges" className="h-4 w-4" aria-hidden>
         <path d="M1 1h2v5H1zM4 1h2v5H4z" fill="currentColor" />

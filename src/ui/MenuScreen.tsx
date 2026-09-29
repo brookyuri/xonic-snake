@@ -159,7 +159,8 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           </button>
         </div>
 
-        <p className="mt-4 text-center font-mono text-sm text-ts-text2" data-testid="stats-line">
+        {/* На 320×568 — меньше отступ: «Export stats» не ближе 8px к нижнему краю. */}
+        <p className="mt-4 text-center font-mono text-sm text-ts-text2 [@media(max-height:600px)]:mt-1" data-testid="stats-line">
           {settings.mode === 'solo' ? formatSoloStatsLine(soloStats) : formatStatsLine(stats)}
         </p>
         <button

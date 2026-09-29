@@ -74,8 +74,13 @@ export function Controls2026({
   onPause: () => void
 }) {
   return (
-    // На 320 px 64 + 168 + 64 шире колонки контента — ряд заходит в поля экрана, зазор сжимается.
-    <div className="-mx-2 grid grid-cols-[64px_168px_64px] items-center justify-center gap-[clamp(4px,3.5vw,16px)] pb-3 pt-1" data-testid="dpad">
+    // На 320 px 64 + 168 + 64 шире колонки контента: ряд заходит в поля экрана до 8px от края
+    // (с учётом safe-area), зазор сжимается так, чтобы кнопка паузы не подходила к краю ближе 8px.
+    <div
+      className="-mx-2 grid grid-cols-[64px_168px_64px] items-center justify-center pb-3 pt-1"
+      style={{ gap: 'max(4px, min(16px, calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 16px - 296px) / 2)))' }}
+      data-testid="dpad"
+    >
       <span aria-hidden />
       <Pad2026 heading={heading} onSteer={onSteer} disabled={!canSteer} />
       <PauseButton2026 disabled={!canSteer} onPause={onPause} />
