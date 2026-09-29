@@ -53,11 +53,15 @@ The rules are the single source of truth: see [GAME_RULES.md](GAME_RULES.md) for
 
 ## Screenshots
 
-2026 board:
+2026:
 
-| Duel | Solo | At home |
-|---|---|---|
-| ![Duel 2026](docs/screenshots/2026/375x667-duel.png) | ![Solo 2026](docs/screenshots/2026/375x667-solo.png) | ![At home 2026](docs/screenshots/2026/375x667-home.png) |
+| Menu | How to play | Duel | Capture wave | Trail in danger |
+|---|---|---|---|---|
+| ![Menu](docs/screenshots/2026/375x667-menu.png) | ![How to play](docs/screenshots/2026/375x667-howto.png) | ![Duel](docs/screenshots/2026/375x667-duel.png) | ![Capture](docs/screenshots/2026/375x667-duel-capture.png) | ![Danger](docs/screenshots/2026/375x667-duel-danger.png) |
+
+| Solo | Ball hit | Level clear | Game over | Pause |
+|---|---|---|---|---|
+| ![Solo](docs/screenshots/2026/375x667-solo.png) | ![Ball hit](docs/screenshots/2026/375x667-solo-ballhit.png) | ![Level clear](docs/screenshots/2026/375x667-level-clear.png) | ![Game over](docs/screenshots/2026/375x667-gameover.png) | ![Pause](docs/screenshots/2026/375x667-pause.png) |
 
 1986 board, Duel:
 
