@@ -26,6 +26,8 @@ Built as a portfolio project and a game-design experiment: the rules are specifi
 
 **https://territory-snake.vercel.app** — best on a phone. Add `?perf` to the URL to see tick timing, frames per second and board frame time, and copy a performance report from the end screen. If ticks run late on the 2026 board, the game offers to switch to 1986 once.
 
+Auto-deployed from master via Vercel.
+
 ## Run it
 
 ```bash
