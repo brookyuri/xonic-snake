@@ -47,6 +47,7 @@ export class Pixi2026Renderer implements BoardRenderer {
   private balls: BallSprites | null = null
   private readonly hit = new Graphics()
   private hitStartedAt = 0
+  private hitKey = ''
   private effects: Effects | null = null
   /** Последняя потеря жизни — удар шариком: вместо рамки клетки — ударная волна. */
   private ballHit = false
@@ -152,6 +153,10 @@ export class Pixi2026Renderer implements BoardRenderer {
     balls.setCell(cell, this.res)
     balls.update([{ pos: { x: cx, y: cy }, prev: { x: cx - 1, y: cy - 1 } }])
     balls.frame(0.5, 0)
+    // Текстуры эффектов (волна захвата, частицы) и Graphics ударной волны — тоже до игры.
+    const fx = this.effects!.warmSprites()
+    const ring = new Graphics().circle(cell, cell, cell).stroke({ width: 2, color: 0xff3df0, alpha: 0.5 })
+    warm.addChild(...fx, ring)
     warm.addChild(balls.container, this.stage)
     const target = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
     r.render({ container: warm, target, clear: true })
@@ -159,6 +164,8 @@ export class Pixi2026Renderer implements BoardRenderer {
     warm.destroy({ children: true })
     balls.destroy()
     target.destroy(true)
+    // И первый кадр на экран — здесь, при монтировании (идёт отсчёт), а не в первом frame().
+    r.render({ container: this.stage })
   }
 
   update(s: RenderSnapshot, events: readonly RenderEvent[]): void {
@@ -265,11 +272,16 @@ export class Pixi2026Renderer implements BoardRenderer {
   /** Клетка удара / столкновения: рамка мигает 3 раза, затем остаётся (reduced motion — сразу). */
   private updateHit(s: RenderSnapshot): void {
     // Удар шариком показывает ударная волна, рамка клетки — только для остальных столкновений.
+    if (!s.highlight?.length) this.ballHit = false
     const cells = this.ballHit ? [] : (s.highlight ?? [])
+    // Graphics трогаем, только когда рамка меняется: clear() на каждом обновлении заставлял
+    // Pixi пересобирать инструкции всей сцены на каждом тике.
+    const key = cells.map((p) => `${p.x},${p.y}`).join(' ') + `|${this.size}`
+    if (key === this.hitKey) return
+    this.hitKey = key
     this.hit.clear()
     if (cells.length === 0) {
       this.hitStartedAt = 0
-      if (!s.highlight?.length) this.ballHit = false
       return
     }
     if (this.hitStartedAt === 0) this.hitStartedAt = performance.now()

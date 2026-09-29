@@ -161,6 +161,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
       botMs: 0,
       commitMs: performance.now() - snap.lastTickAt,
       afterBreak: !counted,
+      fx: events.filter((e) => e.type === 'CAPTURED' || e.type === 'LIFE_LOST').length,
     })
   }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
 

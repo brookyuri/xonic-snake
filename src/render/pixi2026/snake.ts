@@ -252,6 +252,9 @@ export class SnakeSprite {
     this.tongue = tongue
     this.flash.alpha = 0
     this.container.addChild(this.body, this.flash, this.head)
+    // Своя группа рендеринга: перестройка тела на тике пересобирает инструкции только этой
+    // змеи, а не всей сцены (замер Duel при 6× CPU: _buildInstructions сцены ~11 мс на тик).
+    this.container.isRenderGroup = true
     this.setMetrics(m)
     this.applyDanger(0)
   }

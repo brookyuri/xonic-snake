@@ -55,7 +55,10 @@ function rng(seed: number): () => number {
 }
 
 export class Effects {
-  /** Над землёй, под змеями: волна захвата. */
+  /**
+   * Над землёй, под змеями: волна захвата. Слой всегда включён (пустые спрайты прозрачны):
+   * включение visible на захвате пересобирало список отрисовки всей сцены — пик кадра до 28 мс.
+   */
   readonly under = new Container()
   /** Поверх всего: частицы, ударные волны. */
   readonly over = new Container()
@@ -77,7 +80,6 @@ export class Effects {
   private plusLabels: { el: HTMLElement; start: number }[] = []
 
   constructor(private readonly reducedMotion: boolean) {
-    this.under.visible = false
   }
 
   mountLabels(host: HTMLElement): void {
@@ -97,6 +99,15 @@ export class Effects {
     for (const t of this.shapes) t.destroy(true)
     this.shapes = particleTextures(res)
     for (const p of this.particles) p.sprite.texture = this.shapes[0]
+    // Пул волны — сразу на все клетки поля, подложки — тоже: большой захват не создаёт
+    // сотни спрайтов и текстур в одном кадре (замер: пик 28 мс при 1× на захвате).
+    const rows = Math.round(base.height / cell)
+    while (this.waveFree.length + this.wave.length < cols * rows) {
+      const s = this.newWaveSprite()
+      s.alpha = 0
+      this.waveFree.push(s)
+    }
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) this.cover({ x, y })
   }
 
   /** Кусок фона поля под клеткой: пока волна не дошла, клетка выглядит пустой. */
@@ -110,6 +121,12 @@ export class Effects {
     return t
   }
 
+  /** Для прогрева рендерера: по спрайту с каждой текстурой эффектов (загрузка в GPU до игры). */
+  warmSprites(): Sprite[] {
+    if (!this.flash) return []
+    return [this.flash.P1, this.flash.P2, ...this.shapes].map((t) => new Sprite(t))
+  }
+
   /** Захват: волна от точки замыкания, частицы, «+N». */
   capture(cells: readonly Pos[], origin: Pos, owner: PlayerId, now: number): void {
     if (this.reducedMotion || cells.length === 0 || !this.flash) return
@@ -121,7 +138,6 @@ export class Effects {
       sprite.texture = this.cover(c)
       this.wave.push({ sprite, cover: this.cover(c), flash: this.flash![owner], start: now + delays[i] })
     })
-    this.under.visible = true
     const o = cellCenter(origin, this.cell)
     const count = 12 + Math.min(8, Math.floor(cells.length / 4))
     const rand = rng(this.seed++)
@@ -217,7 +233,6 @@ export class Effects {
       if (active === 0) {
         for (const w of this.wave) this.waveFree.push(w.sprite)
         this.wave = []
-        this.under.visible = false
       }
     }
     for (const p of this.particles) {

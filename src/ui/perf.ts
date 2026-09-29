@@ -14,6 +14,8 @@ export interface TickSample {
   commitMs: number
   /** Первый тик после перерыва (отсчёт, пауза, удар): интервал до него — не опоздание. */
   afterBreak?: boolean
+  /** Событий с эффектами на поле 2026 (захват, смерть, потеря жизни) в этом тике. */
+  fx?: number
 }
 
 export interface PerfSummary {

@@ -177,6 +177,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
       botMs: controller.lastBotMs,
       commitMs: performance.now() - snap.lastTickAt,
       afterBreak: !counted,
+      fx: events.filter((e) => e.type === 'CAPTURED' || e.type === 'DIED').length,
     })
   }, [ticks]) // eslint-disable-line react-hooks/exhaustive-deps
 
