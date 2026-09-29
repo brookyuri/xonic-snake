@@ -21,8 +21,10 @@ function landKind(territory: Owner, x: number, y: number, s: RenderSnapshot): La
 }
 
 /** Сколько раз мигает клетка удара и период мигания (как в 1986). */
-const HIT_BLINKS = 3
-const HIT_BLINK_MS = 320
+/** Клетка столкновения 2026: неоновая рамка red, 3 пульса по 320 мс, затем статично. */
+const HIT_PULSES = 3
+const HIT_PULSE_MS = 320
+const HIT_RED = 0xff3355
 
 /**
  * Тема 2026 (VISUAL_2026.md раздел 3): поле на PixiJS. Фон с сеткой — один спрайт; земля —
@@ -46,6 +48,8 @@ export class Pixi2026Renderer implements BoardRenderer {
   private readonly snakes = new Map<PlayerId, SnakeSprite>()
   private balls: BallSprites | null = null
   private readonly hit = new Graphics()
+  /** Свечение рамки столкновения — отдельно, пульсирует прозрачностью. */
+  private readonly hitGlow = new Graphics()
   private hitStartedAt = 0
   private hitKey = ''
   private effects: Effects | null = null
@@ -63,7 +67,7 @@ export class Pixi2026Renderer implements BoardRenderer {
   constructor(private readonly preference: PixiPreference[] = ['webgl', 'canvas']) {
     this.stamp.addChild(this.eraseLayer, this.panelLayer)
     // Шарики поверх змей: в одной клетке они бывают только в момент удара — шарик должен быть виден.
-    this.stage.addChild(this.baseSprite, this.landSprite, this.snakeLayer, this.ballLayer, this.hit)
+    this.stage.addChild(this.baseSprite, this.landSprite, this.snakeLayer, this.ballLayer, this.hitGlow, this.hit)
   }
 
   get rendererName(): string {
@@ -280,15 +284,30 @@ export class Pixi2026Renderer implements BoardRenderer {
     if (key === this.hitKey) return
     this.hitKey = key
     this.hit.clear()
+    this.hitGlow.clear()
     if (cells.length === 0) {
       this.hitStartedAt = 0
       return
     }
     if (this.hitStartedAt === 0) this.hitStartedAt = performance.now()
+    // Неоновая рамка red со свечением (3 широких полупрозрачных штриха без BlurFilter).
     const cell = this.size / this.cols
-    const w = Math.max(1.5, cell * 0.1)
-    for (const p of cells) this.hit.rect(p.x * cell + w / 2, p.y * cell + w / 2, cell - w, cell - w)
-    this.hit.stroke({ width: w, color: 0xffffff })
+    const px = cell / 24
+    const w = Math.max(1.5, 2 * px)
+    const rect = (g: Graphics, p: { x: number; y: number }, grow: number) =>
+      g.roundRect(p.x * cell + w / 2 - grow, p.y * cell + w / 2 - grow, cell - w + grow * 2, cell - w + grow * 2, 3 * px + grow)
+    for (const [width, alpha] of [
+      [10 * px, 0.14],
+      [6 * px, 0.24],
+      [3.5 * px, 0.45],
+    ] as const) {
+      for (const p of cells) rect(this.hitGlow, p, 0)
+      this.hitGlow.stroke({ width, color: HIT_RED, alpha, join: 'round' })
+    }
+    for (const p of cells) rect(this.hit, p, 0)
+    this.hit.stroke({ width: w, color: HIT_RED, join: 'round' })
+    for (const p of cells) rect(this.hit, p, -w * 0.6)
+    this.hit.stroke({ width: Math.max(0.75, 0.8 * px), color: 0xffd0d8, alpha: 0.85, join: 'round' })
   }
 
   frame(alpha: number): void {
@@ -301,7 +320,11 @@ export class Pixi2026Renderer implements BoardRenderer {
     if (this.hitStartedAt > 0) {
       const t = now - this.hitStartedAt
       // alpha, а не visible: смена visible пересобирает список отрисовки сцены.
-      this.hit.alpha = this.reducedMotion || t >= HIT_BLINKS * HIT_BLINK_MS || t % HIT_BLINK_MS < HIT_BLINK_MS / 2 ? 1 : 0
+      // 3 плавных пульса свечения (и чуть — самой рамки), затем статично; reduced motion — сразу.
+      const done = this.reducedMotion || t >= HIT_PULSES * HIT_PULSE_MS
+      const wave = done ? 1 : 0.5 - 0.5 * Math.cos((t / HIT_PULSE_MS) * Math.PI * 2)
+      this.hitGlow.alpha = done ? 1 : 0.2 + 0.8 * wave
+      this.hit.alpha = done ? 1 : 0.65 + 0.35 * wave
     }
     this.renderer.render({ container: this.stage })
   }
