@@ -7,3 +7,6 @@ dist
 
 .vercel
 .env*
+
+# Local Claude Code skills (not part of the project)
+.claude/
