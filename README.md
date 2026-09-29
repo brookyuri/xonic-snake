@@ -1,8 +1,8 @@
 # Xonic Snake
 
-**[▶ Play](https://territory-snake.vercel.app)** — https://territory-snake.vercel.app (best on a phone)
+<a href="https://territory-snake.vercel.app"><img src="docs/media/gameplay.gif" width="300" alt="Gameplay: in Duel the snake leaves home and closes two loops (capture wave, particles) next to the AI; then Solo with three orbs"></a>
 
-[![Xonic Snake: the XONIC SNAKE logo and a 2026 neon board with two snakes](public/og-image.png)](https://territory-snake.vercel.app)
+**[▶ Play](https://territory-snake.vercel.app)** — https://territory-snake.vercel.app (best on a phone)
 
 A real-time territory game for the mobile browser, with two modes:
 
