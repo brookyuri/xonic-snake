@@ -68,10 +68,15 @@ export function createPerfRecorder(): TickSample[] {
 
 export interface FrameSummary {
   frames: number
-  /** Кадров за последнюю секунду. */
+  /** Кадров за последнюю секунду (панель ?perf). */
   fps: number
+  /** Средний FPS за партию. */
+  fpsAvg: number
+  /** Худшие 5 секунд: минимум FPS по полным 5-секундным окнам (нет полного окна — среднее). */
+  fpsMin5s: number
   /** Время frame() рендерера за партию, мс. */
   frameAvg: number
+  frameP95: number
   frameMax: number
 }
 
@@ -80,29 +85,75 @@ export interface FrameRecorder {
   summary(): FrameSummary
 }
 
-/** Кадры рендерера (?perf): FPS за последнюю секунду, среднее и максимум frame(). */
+/** Длина окна для «худших» FPS. */
+export const FPS_WINDOW_MS = 5000
+
+/** Сводка кадров: FPS (среднее и минимум по 5-секундным окнам) и время frame(). Чистая функция. */
+export function summarizeFrames(samples: readonly (readonly [number, number])[], now = samples.length ? samples[samples.length - 1][1] : 0): FrameSummary {
+  const n = samples.length
+  if (n === 0) return { frames: 0, fps: 0, fpsAvg: 0, fpsMin5s: 0, frameAvg: 0, frameP95: 0, frameMax: 0 }
+  const times = samples.map((s) => s[1])
+  const ms = samples.map((s) => s[0]).sort((a, b) => a - b)
+  const span = times[n - 1] - times[0]
+  const fpsAvg = span > 0 ? ((n - 1) * 1000) / span : 0
+  let fpsMin5s = Infinity
+  for (let from = times[0], i = 0; from + FPS_WINDOW_MS <= times[n - 1]; from += FPS_WINDOW_MS) {
+    let count = 0
+    while (i < n && times[i] < from + FPS_WINDOW_MS) {
+      if (times[i] >= from) count++
+      i++
+    }
+    fpsMin5s = Math.min(fpsMin5s, (count * 1000) / FPS_WINDOW_MS)
+  }
+  return {
+    frames: n,
+    fps: times.filter((t) => t > now - 1000).length,
+    fpsAvg: round1(fpsAvg),
+    fpsMin5s: round1(Number.isFinite(fpsMin5s) ? fpsMin5s : fpsAvg),
+    frameAvg: round1(ms.reduce((a, b) => a + b, 0) / n),
+    frameP95: round1(ms[Math.min(n - 1, Math.floor(n * 0.95))]),
+    frameMax: round1(ms[n - 1]),
+  }
+}
+
+/** Кадры рендерера (?perf). Панель берёт сводку раз в тик — сортировка там дешевле, чем на кадре. */
 export function createFrameRecorder(): FrameRecorder {
   const samples: [number, number][] = []
   if (perfEnabled) window.__tsFrames = samples
-  const recent: number[] = []
-  let sum = 0
-  let max = 0
   return {
     record(ms, now) {
       samples.push([ms, now])
-      sum += ms
-      if (ms > max) max = ms
-      recent.push(now)
-      while (recent.length > 0 && recent[0] <= now - 1000) recent.shift()
     },
-    summary: () => ({
-      frames: samples.length,
-      fps: recent.length,
-      frameAvg: samples.length ? round1(sum / samples.length) : 0,
-      frameMax: round1(max),
-    }),
+    summary: () => summarizeFrames(samples),
   }
 }
+
+/** Устройство для отчёта: модель (Client Hints, если браузер её отдаёт), платформа, мобильное ли. */
+export interface DeviceInfo {
+  model: string | null
+  platform: string | null
+  mobile: boolean | null
+}
+
+interface UADataLike {
+  platform?: string
+  mobile?: boolean
+  getHighEntropyValues?: (hints: string[]) => Promise<{ model?: string; platform?: string }>
+}
+
+let device: DeviceInfo = { model: null, platform: null, mobile: null }
+
+/** Запросить модель заранее (асинхронно); в отчёт попадёт то, что успело прийти. */
+export function detectDevice(): void {
+  const ua = (navigator as Navigator & { userAgentData?: UADataLike }).userAgentData
+  if (!ua) return
+  device = { model: null, platform: ua.platform ?? null, mobile: ua.mobile ?? null }
+  ua.getHighEntropyValues?.(['model', 'platform'])
+    .then((v) => (device = { ...device, model: v.model || null, platform: v.platform ?? device.platform }))
+    .catch(() => {})
+}
+
+if (perfEnabled && typeof navigator !== 'undefined') detectDevice()
 
 /** JSON, который тестер копирует с экрана конца партии. */
 export function perfReport(
@@ -120,8 +171,11 @@ export function perfReport(
       speed: settings.speed,
       difficulty: settings.mode === 'duel' ? settings.difficulty : null,
       theme: settings.theme ?? null,
+      device,
       ...summary,
-      ...(frames ? { fps: frames.fps, frameAvg: frames.frameAvg, frameMax: frames.frameMax } : {}),
+      ...(frames
+        ? { fps: { avg: frames.fpsAvg, min5s: frames.fpsMin5s }, frameAvg: frames.frameAvg, frameP95: frames.frameP95, frameMax: frames.frameMax }
+        : {}),
     },
     null,
     2

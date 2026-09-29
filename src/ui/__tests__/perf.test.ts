@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createFrameRecorder, summarizePerf, type TickSample } from '../perf'
+import { createFrameRecorder, perfReport, summarizeFrames, summarizePerf, type TickSample } from '../perf'
 
 const sample = (tick: number, at: number, botMs = 2, commitMs = 3): TickSample => ({
   tick,
@@ -53,5 +53,42 @@ describe('createFrameRecorder', () => {
     expect(s.fps).toBe(60)
     expect(s.frameMax).toBe(12)
     expect(s.frameAvg).toBeCloseTo((119 * 2 + 12) / 120, 1)
+  })
+})
+
+describe('summarizeFrames', () => {
+  it('fps: average over the run and the worst full 5-second window; frame() p95', () => {
+    const samples: [number, number][] = []
+    let t = 0
+    // 5 с по 60 FPS, затем 5 с по 20 FPS, затем ещё 2 с по 60 (неполное окно — не в минимуме).
+    for (let i = 0; i < 300; i++) samples.push([1, (t += 1000 / 60)])
+    for (let i = 0; i < 100; i++) samples.push([i < 10 ? 20 : 2, (t += 50)])
+    for (let i = 0; i < 120; i++) samples.push([1, (t += 1000 / 60)])
+    const s = summarizeFrames(samples)
+    expect(s.fpsMin5s).toBeCloseTo(20, 0)
+    expect(s.fpsAvg).toBeCloseTo((519 * 1000) / (t - samples[0][1]), 0)
+    expect(s.frameP95).toBe(2)
+    expect(s.frameMax).toBe(20)
+  })
+
+  it('no full window yet: the minimum is the average', () => {
+    const samples: [number, number][] = Array.from({ length: 60 }, (_, i) => [1, i * 20])
+    const s = summarizeFrames(samples)
+    expect(s.fpsMin5s).toBe(s.fpsAvg)
+  })
+})
+
+describe('perfReport', () => {
+  it('has theme, fps avg/min over 5 s, frameAvg, frameP95 and device', () => {
+    ;(globalThis as { navigator?: unknown }).navigator ??= { userAgent: 'test' }
+    ;(globalThis as { screen?: unknown }).screen ??= { width: 375, height: 667 }
+    ;(globalThis as { window?: unknown }).window ??= { devicePixelRatio: 2 }
+    const frames = summarizeFrames(Array.from({ length: 400 }, (_, i) => [1 + (i % 10), i * 16.7] as [number, number]))
+    const json = JSON.parse(perfReport(summarizePerf([], 180), { mode: 'solo', speed: 'fast', difficulty: 'easy', theme: '2026' }, frames))
+    expect(json.theme).toBe('2026')
+    expect(json.fps).toEqual({ avg: frames.fpsAvg, min5s: frames.fpsMin5s })
+    expect(json.frameAvg).toBe(frames.frameAvg)
+    expect(json.frameP95).toBe(frames.frameP95)
+    expect(json.device).toHaveProperty('model')
   })
 })
