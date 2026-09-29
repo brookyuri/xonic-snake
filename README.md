@@ -1,5 +1,7 @@
 # Xonic Snake
 
+[![CI](https://github.com/brookyuri/xonic-snake/actions/workflows/ci.yml/badge.svg)](https://github.com/brookyuri/xonic-snake/actions/workflows/ci.yml)
+
 <a href="https://territory-snake.vercel.app"><img src="docs/media/gameplay.gif" width="300" alt="Gameplay: in Duel the snake leaves home and closes two loops (capture wave, particles) next to the AI; then Solo with three orbs"></a>
 
 **[▶ Play](https://territory-snake.vercel.app)** — https://territory-snake.vercel.app (best on a phone)

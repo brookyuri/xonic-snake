@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      # Unit and scenario tests, 2000-game Duel and Solo stress runs, the bot smoke match.
+      # The full bot benchmark (npm run bench) is not run in CI.
+      - run: npm test
+      - run: npm run build
