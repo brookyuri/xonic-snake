@@ -44,6 +44,10 @@ export interface RenderSnapshot {
   highlightStyle?: 'fill' | 'frame'
   /** Идёт отсчёт 3-2-1. */
   loading?: boolean
+  /** Шаг шарика длится столько тиков (Solo Easy — 2): отрисовка растягивает его на все. */
+  ballSpan?: number
+  /** Игра стоит (отсчёт, пауза, удар, уровень): шарики — в своих клетках, без интерполяции. */
+  settled?: boolean
 }
 
 export type RenderEvent = GameEvent | SoloEvent

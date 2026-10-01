@@ -180,7 +180,8 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.snapshot = s
     this.drawLand(s)
     this.updateSnakes(s)
-    this.balls!.update(s.balls)
+    // Новый тик — когда пришли события движка; reduced motion — без интерполяции (settled).
+    this.balls!.update(s.balls, s.ballSpan ?? 1, events.length > 0, (s.settled ?? false) || this.reducedMotion)
     this.playEvents(s, events)
     this.updateHit(s)
   }

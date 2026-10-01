@@ -236,6 +236,8 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
       loading: phase === 'COUNTDOWN',
       highlight: hit ? [hit] : undefined,
       highlightStyle: 'frame',
+      // Игра стоит — шарики в своих клетках (на Easy шаг растянут на 2 тика только в игре).
+      settled: phase !== 'RUNNING',
     }
   }, [state, events, phase, flash])
   const canSteer = phase === 'RUNNING' || phase === 'COUNTDOWN'

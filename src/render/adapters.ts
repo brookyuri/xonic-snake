@@ -1,4 +1,4 @@
-import type { Ball, SoloEvent, SoloState } from '../engine/solo'
+import { SOLO_DIFFICULTY, difficultyOf, type Ball, type SoloEvent, type SoloState } from '../engine/solo'
 import type { Cell, Direction, GameEvent, GameState, Player, PlayerId, Pos } from '../engine/types'
 import type { BallView, BoardVariant, RenderSnapshot, SnakeView } from './types'
 
@@ -57,6 +57,8 @@ export function snapshotFromSolo(state: SoloState, events: readonly SoloEvent[] 
     board: state.board,
     snakes: [snakeView(state.player, e?.type === 'MOVED' ? e : undefined)],
     balls: ballViews(state.balls, events),
+    // Easy: шарики ходят через тик (SOLO_RULES v0.3, раздел 13).
+    ballSpan: SOLO_DIFFICULTY[difficultyOf(state)].ballStepEvery,
   }
 }
 
