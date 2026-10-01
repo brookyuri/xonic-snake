@@ -1,5 +1,5 @@
 import { continueSolo, createSoloState, getLegalMoves, resolveSoloTick } from '../engine/solo'
-import type { SoloEvent, SoloState } from '../engine/solo'
+import type { SoloDifficulty, SoloEvent, SoloState } from '../engine/solo'
 import type { Direction } from '../engine/types'
 import { takeMoveFrom } from './input'
 import { TickController, type Snapshot, type TickOptions, type TickResult } from './match'
@@ -14,6 +14,8 @@ export type SoloSnapshot = Snapshot<SoloState, SoloEvent>
 export interface SoloMatchOptions extends TickOptions {
   /** Зерно шариков: одна партия — одно зерно (SOLO_RULES.md раздел 8). */
   seed: number
+  /** Сложность партии (раздел 13), по умолчанию Normal. */
+  difficulty?: SoloDifficulty
   /** Начальная позиция вместо старта уровня 1 (для тестов). */
   initial?: SoloState
   lifeLostMs?: number
@@ -29,7 +31,7 @@ export class SoloMatchController extends TickController<SoloState, SoloEvent> {
   private readonly holds: { lifeLost: number; levelClear: number }
 
   constructor(options: SoloMatchOptions) {
-    super(options, options.initial ?? createSoloState({ seed: options.seed }))
+    super(options, options.initial ?? createSoloState({ seed: options.seed, difficulty: options.difficulty }))
     this.holds = {
       lifeLost: options.lifeLostMs ?? LIFE_LOST_MS,
       levelClear: options.levelClearMs ?? LEVEL_CLEAR_MS,

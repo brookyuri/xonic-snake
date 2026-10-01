@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { exportStats, formatSoloStatsLine, formatStatsLine, loadSoloStats, loadStats } from './stats'
 import { copyText } from './clipboard'
-import type { Difficulty, Mode, Settings } from './settings'
+import { modeDifficulty, withModeDifficulty, type Difficulty, type Mode, type Settings } from './settings'
 import type { Speed } from '../game/config'
 import { preloadPixi, type Theme } from '../render/createRenderer'
 
@@ -109,14 +109,13 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
             options={MODES}
             onChange={(mode) => onSettingsChange({ ...settings, mode })}
           />
-          {settings.mode === 'duel' && (
-            <Segmented
-              label="Difficulty"
-              value={settings.difficulty}
-              options={DIFFICULTIES}
-              onChange={(difficulty) => onSettingsChange({ ...settings, difficulty })}
-            />
-          )}
+          {/* Сложность — для обоих режимов, у каждого своя (SOLO_RULES v0.3, раздел 13). */}
+          <Segmented
+            label="Difficulty"
+            value={modeDifficulty(settings)}
+            options={DIFFICULTIES}
+            onChange={(difficulty) => onSettingsChange(withModeDifficulty(settings, difficulty))}
+          />
           <Segmented
             label="Speed"
             value={settings.speed}

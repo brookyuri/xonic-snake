@@ -3,7 +3,7 @@ import type { Speed } from '../game/config'
 import { preloadPixi, type Theme } from '../render/createRenderer'
 import type { Pt } from '../render/geometry'
 import { copyText } from '../ui/clipboard'
-import type { Difficulty, Mode, Settings } from '../ui/settings'
+import { modeDifficulty, withModeDifficulty, type Difficulty, type Mode, type Settings } from '../ui/settings'
 import { exportStats, loadSoloStats, loadStats } from '../ui/stats'
 import { BallSvg, SnakeSvg } from './SnakeSvg'
 
@@ -202,26 +202,25 @@ export function Menu2026({ settings, onSettingsChange, onPlay, onHowTo }: Props)
           <ModeCard selected={settings.mode === 'solo'} title="SOLO" subtitle="Dodge the orbs" onClick={() => set({ mode: 'solo' })} />
           <ModeCard selected={settings.mode === 'duel'} title="DUEL" subtitle="Play against AI" onClick={() => set({ mode: 'duel' as Mode })} />
         </div>
-        {settings.mode === 'duel' && (
-          <div role="radiogroup" aria-label="Difficulty" className="grid grid-cols-2 gap-3">
-            {(['easy', 'normal'] as Difficulty[]).map((d) => (
-              <button
-                key={d}
-                type="button"
-                role="radio"
-                aria-checked={settings.difficulty === d}
-                onClick={() => set({ difficulty: d })}
-                className="cut t26-btn text-sm"
-                style={{
-                  ['--edge' as string]: settings.difficulty === d ? 'var(--c26-cyan)' : 'linear-gradient(135deg, var(--c26-violet), var(--c26-magenta))',
-                  color: settings.difficulty === d ? 'var(--c26-cyan)' : 'var(--c26-text)',
-                }}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Сложность — для обоих режимов, у каждого своя (SOLO_RULES v0.3, раздел 13). */}
+        <div role="radiogroup" aria-label="Difficulty" className="grid grid-cols-2 gap-3">
+          {(['easy', 'normal'] as Difficulty[]).map((d) => (
+            <button
+              key={d}
+              type="button"
+              role="radio"
+              aria-checked={modeDifficulty(settings) === d}
+              onClick={() => onSettingsChange(withModeDifficulty(settings, d))}
+              className="cut t26-btn text-sm"
+              style={{
+                ['--edge' as string]: modeDifficulty(settings) === d ? 'var(--c26-cyan)' : 'linear-gradient(135deg, var(--c26-violet), var(--c26-magenta))',
+                color: modeDifficulty(settings) === d ? 'var(--c26-cyan)' : 'var(--c26-text)',
+              }}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
 
         <div className="cut px-4 pb-1 pt-2" style={{ ['--edge' as string]: 'linear-gradient(135deg, var(--c26-cyan), var(--c26-violet))' }}>
           <div className="flex items-center justify-between">

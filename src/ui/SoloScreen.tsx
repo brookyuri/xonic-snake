@@ -53,7 +53,9 @@ interface MatchProps extends Props {
 
 function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer }: MatchProps) {
   const tickMs = SPEEDS[settings.speed]
-  const [controller] = useState(() => new SoloMatchController({ tickMs, seed: randomSeed() }))
+  const [controller] = useState(
+    () => new SoloMatchController({ tickMs, seed: randomSeed(), difficulty: settings.soloDifficulty })
+  )
   const subscribe = useCallback((listener: () => void) => controller.subscribe(listener), [controller])
   const snap = useSyncExternalStore(subscribe, () => controller.snapshot)
   const { state, phase, events, ticks } = snap

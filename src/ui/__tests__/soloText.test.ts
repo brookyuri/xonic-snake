@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { describeSoloTick, levelIntro, progressLabel, soloEndReason } from '../soloText'
-import { loadSettings } from '../settings'
+import { loadSettings, modeDifficulty, withModeDifficulty } from '../settings'
 import type { SoloEvent } from '../../engine/solo'
 
 const cells = (n: number) => Array.from({ length: n }, (_, x) => ({ x, y: 1 }))
@@ -42,7 +42,8 @@ describe('settings: mode', () => {
     ;(globalThis as { localStorage?: unknown }).localStorage = storage
     expect(loadSettings().mode).toBe('duel')
     data.set('ts_settings', JSON.stringify({ difficulty: 'normal', speed: 'fast', mode: 'solo' }))
-    expect(loadSettings()).toEqual({ mode: 'solo', difficulty: 'normal', speed: 'fast', theme: '2026' })
+    // Настройки до v0.3 — без soloDifficulty: такой игрок играл Solo на Normal, так и остаётся.
+    expect(loadSettings()).toEqual({ mode: 'solo', difficulty: 'normal', soloDifficulty: 'normal', speed: 'fast', theme: '2026' })
     data.set('ts_settings', JSON.stringify({ mode: 'arcade' }))
     expect(loadSettings().mode).toBe('duel')
     delete (globalThis as { localStorage?: unknown }).localStorage
@@ -61,6 +62,28 @@ describe('settings: theme', () => {
     expect(loadSettings().theme).toBe('1986')
     data.set('ts_settings', JSON.stringify({ theme: 'neon' }))
     expect(loadSettings().theme).toBe('2026')
+    delete (globalThis as { localStorage?: unknown }).localStorage
+  })
+})
+
+describe('settings: difficulty per mode (SOLO_RULES v0.3, section 13)', () => {
+  it('a new player gets Easy in both modes; each mode keeps its own difficulty', () => {
+    const data = new Map<string, string>()
+    const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) }
+    ;(globalThis as { localStorage?: unknown }).localStorage = storage
+    const fresh = loadSettings()
+    expect(fresh.difficulty).toBe('easy')
+    expect(fresh.soloDifficulty).toBe('easy')
+
+    const duelNormal = withModeDifficulty({ ...fresh, mode: 'duel' }, 'normal')
+    expect(duelNormal).toMatchObject({ difficulty: 'normal', soloDifficulty: 'easy' })
+    expect(modeDifficulty(duelNormal)).toBe('normal')
+    expect(modeDifficulty({ ...duelNormal, mode: 'solo' })).toBe('easy')
+
+    data.set('ts_settings', JSON.stringify({ ...duelNormal, mode: 'solo', soloDifficulty: 'normal', difficulty: 'easy' }))
+    expect(loadSettings()).toMatchObject({ difficulty: 'easy', soloDifficulty: 'normal' })
+    data.set('ts_settings', JSON.stringify({ mode: 'solo', soloDifficulty: 'hard' }))
+    expect(loadSettings().soloDifficulty).toBe('normal')
     delete (globalThis as { localStorage?: unknown }).localStorage
   })
 })
