@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { assertSoloInvariants, SOLO_BOARD_SIZE, START_LIVES, type SoloState } from '../engine/solo'
+import { assertSoloInvariants, difficultyOf, SOLO_BOARD_SIZE, START_LIVES, type SoloState } from '../engine/solo'
 import type { Direction, PlayerId, Pos } from '../engine/types'
 import { SPEEDS } from '../game/config'
 import { lastQueuedDirection } from '../game/input'
@@ -139,7 +139,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
   // Начало уровня: «LEVEL 2 — 3 BALLS». Лента живёт в ref — перерисовываем сами.
   const [, redraw] = useState(0)
   useEffect(() => {
-    feed.current.push([levelIntro(state.level)], performance.now())
+    feed.current.push([levelIntro(state.level, difficultyOf(state))], performance.now())
     redraw((n) => n + 1)
   }, [state.level])
 
@@ -259,6 +259,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
             <SoloHud2026
               score={state.score}
               level={state.level}
+              difficulty={difficultyOf(state)}
               lives={state.lives}
               slots={Math.max(peakLives.current, state.lives)}
               progressPercent={Math.floor(state.progress * 100)}
@@ -404,7 +405,13 @@ function SoloHud({ state, peakLives, children }: { state: SoloState; peakLives: 
   const slots = Math.max(peakLives, state.lives)
   return (
     <div className="flex items-center gap-1.5 whitespace-nowrap font-pixel text-[10px]" data-testid="hud">
-      <span className="shrink-0 text-ts-text">LV {state.level}</span>
+      {/* Сложность — мелко под LV: строка HUD не становится шире и выше (её высоту задаёт пауза). */}
+      <span className="flex shrink-0 flex-col items-start gap-0.5 text-ts-text">
+        <span>LV {state.level}</span>
+        <span className="text-[8px] leading-none text-ts-text2" data-testid="difficulty">
+          {difficultyOf(state).toUpperCase()}
+        </span>
+      </span>
       <span className="shrink-0 text-ts-blue" data-testid="progress">
         {progressLabel(state)}
       </span>

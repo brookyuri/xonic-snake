@@ -75,6 +75,7 @@ export function DuelHud2026({
 export function SoloHud2026({
   score,
   level,
+  difficulty,
   lives,
   slots,
   progressPercent,
@@ -82,6 +83,7 @@ export function SoloHud2026({
 }: {
   score: number
   level: number
+  difficulty: 'easy' | 'normal'
   lives: number
   /** Сколько ромбов показывать (потерянные — пустые). */
   slots: number
@@ -90,19 +92,26 @@ export function SoloHud2026({
 }) {
   return (
     <div className="grid grid-cols-2 gap-1.5" data-testid="hud">
+      {/* SCORE и LV n · сложность (EASY / NORMAL) — сверху; счёт и жизни — снизу. Сложность —
+          под LV, а не в строку с ним: на 320px «LV 10 · NORMAL» в строку не помещается. */}
       <Card className="cut-tl" edge="linear-gradient(135deg, var(--c26-cyan), var(--c26-violet))">
         <div className="flex items-baseline justify-between gap-2">
           <span className="t26-label text-[10px]">SCORE</span>
-          <span className="t26-label text-[11px] text-[var(--c26-gold)]">LV {level}</span>
+          <span className="t26-label whitespace-nowrap text-[11px] text-[var(--c26-gold)]">LV {level}</span>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="t26-num text-[22px] font-bold leading-tight text-[var(--c26-gold)]" data-testid="score">
+        <div className="flex items-center justify-between gap-1.5">
+          <span className="t26-num text-[clamp(18px,5.6vw,22px)] font-bold leading-tight text-[var(--c26-gold)]" data-testid="score">
             {score}
           </span>
-          <span className="flex items-center gap-1.5" role="img" aria-label={`${lives} ${lives === 1 ? 'life' : 'lives'} left`} data-testid="lives">
-            {Array.from({ length: slots }, (_, i) => (
-              <span key={i} className={`t26-life ${i < lives ? 't26-life-full' : ''}`} />
-            ))}
+          <span className="flex flex-col items-end gap-1">
+            <span className="t26-label whitespace-nowrap text-[10px] leading-none text-[var(--c26-text)]" data-testid="difficulty">
+              {difficulty}
+            </span>
+            <span className="flex items-center gap-[3px]" role="img" aria-label={`${lives} ${lives === 1 ? 'life' : 'lives'} left`} data-testid="lives">
+              {Array.from({ length: slots }, (_, i) => (
+                <span key={i} className={`t26-life ${i < lives ? 't26-life-full' : ''}`} />
+              ))}
+            </span>
           </span>
         </div>
       </Card>

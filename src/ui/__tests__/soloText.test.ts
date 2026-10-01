@@ -87,3 +87,11 @@ describe('settings: difficulty per mode (SOLO_RULES v0.3, section 13)', () => {
     delete (globalThis as { localStorage?: unknown }).localStorage
   })
 })
+
+describe('levelIntro by difficulty', () => {
+  it('Easy has one ball fewer (SOLO_RULES v0.3, section 13)', () => {
+    expect(levelIntro(1, 'easy')).toBe('Level 1 — 1 ball')
+    expect(levelIntro(2, 'easy')).toBe('Level 2 — 2 balls')
+    expect(levelIntro(2, 'normal')).toBe('Level 2 — 3 balls')
+  })
+})

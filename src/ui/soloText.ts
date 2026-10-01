@@ -1,4 +1,4 @@
-import type { SoloEvent, SoloState } from '../engine/solo'
+import { ballsForLevel, type SoloDifficulty, type SoloEvent, type SoloState } from '../engine/solo'
 
 const cells = (n: number) => `${n} ${n === 1 ? 'cell' : 'cells'}`
 
@@ -12,9 +12,9 @@ export function describeSoloTick(events: readonly SoloEvent[]): string[] {
   return lines
 }
 
-/** Начало уровня: «LEVEL 2 — 3 BALLS». */
-export function levelIntro(level: number): string {
-  const balls = level + 1
+/** Начало уровня: «LEVEL 2 — 3 BALLS» (Normal), «LEVEL 2 — 2 BALLS» (Easy). */
+export function levelIntro(level: number, difficulty: SoloDifficulty = 'normal'): string {
+  const balls = ballsForLevel(level, difficulty)
   return `Level ${level} — ${balls} ${balls === 1 ? 'ball' : 'balls'}`
 }
 

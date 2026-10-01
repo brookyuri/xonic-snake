@@ -285,8 +285,8 @@
 
 /* Жизни-ромбы 12px: целая — cyan со свечением, потерянная — #1b2a4d. */
 .t26-life {
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   transform: rotate(45deg);
   background: var(--c26-track);
 }
