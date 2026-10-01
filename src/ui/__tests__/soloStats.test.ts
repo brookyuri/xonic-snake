@@ -3,6 +3,7 @@ import {
   exportStats,
   formatSoloStatsLine,
   loadGames,
+  loadAllSoloStats,
   loadSoloStats,
   loadStats,
   markLastGameRematch,
@@ -115,7 +116,11 @@ describe('Solo stats (ts_solo)', () => {
     recordSoloGame(solo(77, 1))
     const exported = JSON.parse(exportStats())
     expect(exported.stats).toMatchObject({ gamesPlayed: 0 })
-    expect(exported.solo).toEqual({ gamesPlayed: 1, bestScore: 77, bestLevel: 1 })
+    // С v0.3 — обе сложности (партия без difficulty — Normal).
+    expect(exported.solo).toEqual({
+      easy: { gamesPlayed: 0, bestScore: 0, bestLevel: 0 },
+      normal: { gamesPlayed: 1, bestScore: 77, bestLevel: 1 },
+    })
     expect(exported.games[0]).toMatchObject({ mode: 'solo', score: 77 })
   })
 
@@ -124,5 +129,33 @@ describe('Solo stats (ts_solo)', () => {
     storage.setItem('ts_solo', '{"bestScore":"lots"}')
     vi.stubGlobal('localStorage', storage)
     expect(loadSoloStats()).toEqual({ gamesPlayed: 0, bestScore: 0, bestLevel: 0 })
+  })
+})
+
+describe('Solo stats by difficulty (SOLO_RULES v0.3, section 13)', () => {
+  it('records are separate: NEW BEST compares with the record of its own difficulty', () => {
+    vi.stubGlobal('localStorage', memoryStorage())
+    expect(recordSoloGame({ ...solo(500, 3), difficulty: 'normal' })).toEqual({ previousBest: 0, newBest: true })
+    expect(recordSoloGame({ ...solo(200, 2), difficulty: 'easy' })).toEqual({ previousBest: 0, newBest: true })
+    expect(recordSoloGame({ ...solo(300, 2), difficulty: 'easy' })).toEqual({ previousBest: 200, newBest: true })
+    expect(recordSoloGame({ ...solo(400, 4), difficulty: 'normal' })).toEqual({ previousBest: 500, newBest: false })
+    expect(loadSoloStats('easy')).toEqual({ gamesPlayed: 2, bestScore: 300, bestLevel: 2 })
+    expect(loadSoloStats('normal')).toEqual({ gamesPlayed: 2, bestScore: 500, bestLevel: 4 })
+    expect(loadGames().map((g) => (g.mode === 'solo' ? g.difficulty : null))).toEqual(['normal', 'easy', 'easy', 'normal'])
+  })
+
+  it('migrates the pre-v0.3 summary into Normal without losing anything', () => {
+    const storage = memoryStorage()
+    storage.setItem('ts_solo', JSON.stringify({ gamesPlayed: 12, bestScore: 1450, bestLevel: 3 }))
+    storage.setItem('ts_games', JSON.stringify([{ mode: 'solo', id: 's1', startedAt: '2026-09-28T10:00:00.000Z', rounds: 300, level: 3, score: 1450, reason: 'GAME_OVER', captures: 9, rematch: false, speed: 'normal' }]))
+    vi.stubGlobal('localStorage', storage)
+    expect(loadAllSoloStats()).toEqual({
+      easy: { gamesPlayed: 0, bestScore: 0, bestLevel: 0 },
+      normal: { gamesPlayed: 12, bestScore: 1450, bestLevel: 3 },
+    })
+    expect(loadGames()[0]).toMatchObject({ id: 's1', score: 1450, difficulty: 'normal' })
+    // Первая партия на Easy не трогает рекорды Normal.
+    expect(recordSoloGame({ ...solo(100, 1), difficulty: 'easy' })).toEqual({ previousBest: 0, newBest: true })
+    expect(loadSoloStats('normal')).toEqual({ gamesPlayed: 12, bestScore: 1450, bestLevel: 3 })
   })
 })

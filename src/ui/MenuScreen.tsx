@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { exportStats, formatSoloStatsLine, formatStatsLine, loadSoloStats, loadStats } from './stats'
+import { exportStats, formatSoloStatsLine, formatStatsLine, loadAllSoloStats, loadStats } from './stats'
 import { copyText } from './clipboard'
 import { modeDifficulty, withModeDifficulty, type Difficulty, type Mode, type Settings } from './settings'
 import type { Speed } from '../game/config'
@@ -78,7 +78,7 @@ const SPEED_OPTIONS: { value: Speed; label: string }[] = [
 
 export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Props) {
   const [stats] = useState(loadStats)
-  const [soloStats] = useState(loadSoloStats)
+  const [soloStats] = useState(loadAllSoloStats)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   // Тема 2026: чанк Pixi начинает грузиться уже в меню, к PLAY он обычно готов.
@@ -160,7 +160,8 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
 
         {/* На 320×568 — меньше отступ: «Export stats» не ближе 8px к нижнему краю. */}
         <p className="mt-4 text-center font-mono text-sm text-ts-text2 [@media(max-height:600px)]:mt-1" data-testid="stats-line">
-          {settings.mode === 'solo' ? formatSoloStatsLine(soloStats) : formatStatsLine(stats)}
+          {/* Solo — рекорды выбранной сложности. */}
+          {settings.mode === 'solo' ? formatSoloStatsLine(soloStats[settings.soloDifficulty]) : formatStatsLine(stats)}
         </p>
         <button
           type="button"

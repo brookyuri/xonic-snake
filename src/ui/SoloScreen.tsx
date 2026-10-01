@@ -95,6 +95,8 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
     score: controller.snapshot.state.score,
     captures: match.current.captures,
     speed: settings.speed,
+    // Рекорды и записи — своей сложности (SOLO_RULES v0.3, раздел 13).
+    difficulty: difficultyOf(controller.snapshot.state),
   })
 
   /**

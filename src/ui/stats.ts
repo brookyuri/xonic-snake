@@ -56,16 +56,24 @@ export interface SoloGameRecord {
   captures: number
   rematch: boolean
   speed: Speed
+  /** Сложность Solo (SOLO_RULES v0.3); записи до v0.3 при чтении получают 'normal'. */
+  difficulty: Difficulty
 }
 
 export type GameRecord = DuelGameRecord | SoloGameRecord
 
-/** Сводка Solo (ts_solo). */
+/** Сводка Solo одной сложности. */
 export interface SoloStats {
   gamesPlayed: number
   bestScore: number
   bestLevel: number
 }
+
+/**
+ * ts_solo с v0.3: рекорды отдельно для Easy и Normal (SOLO_RULES раздел 13). Сводка до v0.3
+ * ({ gamesPlayed, bestScore, bestLevel }) при чтении целиком становится Normal.
+ */
+export type SoloStatsByDifficulty = Record<Difficulty, SoloStats>
 
 const EMPTY_STATS: PlayerStats = { gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTerritory: 0, abandoned: 0 }
 
@@ -91,15 +99,31 @@ export function loadGames(): GameRecord[] {
   if (!Array.isArray(raw)) return []
   return raw
     .filter((g): g is Record<string, unknown> => !!g && typeof g === 'object')
-    .map((g) => (g.mode === 'solo' ? (g as unknown as SoloGameRecord) : ({ ...g, mode: 'duel' } as unknown as DuelGameRecord)))
+    .map((g) =>
+      g.mode === 'solo'
+        ? ({ ...g, difficulty: g.difficulty === 'easy' ? 'easy' : 'normal' } as unknown as SoloGameRecord)
+        : ({ ...g, mode: 'duel' } as unknown as DuelGameRecord)
+    )
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
-export function loadSoloStats(): SoloStats {
-  const raw = readJSON<Partial<SoloStats> | null>(SOLO_KEY, null)
-  if (!raw || typeof raw !== 'object') return { gamesPlayed: 0, bestScore: 0, bestLevel: 0 }
-  return { gamesPlayed: num(raw.gamesPlayed), bestScore: num(raw.bestScore), bestLevel: num(raw.bestLevel) }
+const soloStatsFrom = (raw: unknown): SoloStats => {
+  const r = raw && typeof raw === 'object' ? (raw as Partial<SoloStats>) : {}
+  return { gamesPlayed: num(r.gamesPlayed), bestScore: num(r.bestScore), bestLevel: num(r.bestLevel) }
+}
+
+/** Обе сложности; старая плоская сводка → Normal без потерь. */
+export function loadAllSoloStats(): SoloStatsByDifficulty {
+  const raw = readJSON<Record<string, unknown> | null>(SOLO_KEY, null)
+  if (!raw || typeof raw !== 'object') return { easy: soloStatsFrom(null), normal: soloStatsFrom(null) }
+  if (!('easy' in raw) && !('normal' in raw)) return { easy: soloStatsFrom(null), normal: soloStatsFrom(raw) }
+  return { easy: soloStatsFrom(raw.easy), normal: soloStatsFrom(raw.normal) }
+}
+
+/** Сводка Solo одной сложности (по умолчанию Normal). */
+export function loadSoloStats(difficulty: Difficulty = 'normal'): SoloStats {
+  return loadAllSoloStats()[difficulty]
 }
 
 function newId(): string {
@@ -148,26 +172,30 @@ export function recordAbandoned(record: DuelFields): string {
   return appendGame({ ...record, mode: 'duel', winner: null, reason: ABANDONED })
 }
 
-type SoloFields = Omit<SoloGameRecord, 'mode' | 'rematch' | 'reason' | 'id'>
+/** difficulty не указана — Normal (так играли до v0.3). */
+type SoloFields = Omit<SoloGameRecord, 'mode' | 'rematch' | 'reason' | 'id' | 'difficulty'> & { difficulty?: Difficulty }
 
 /**
  * Партия Solo закончилась (GAME_OVER). Возвращает лучший результат до этой партии и
  * побит ли он — для «NEW BEST!» на экране конца.
  */
 export function recordSoloGame(record: SoloFields): { previousBest: number; newBest: boolean } {
-  const stats = loadSoloStats()
+  const difficulty = record.difficulty ?? 'normal'
+  const all = loadAllSoloStats()
+  // Рекорд — своей сложности (раздел 13): «NEW BEST!» на Easy не бьёт рекорд Normal.
+  const stats = all[difficulty]
   const previousBest = stats.bestScore
   stats.gamesPlayed++
   stats.bestScore = Math.max(stats.bestScore, record.score)
   stats.bestLevel = Math.max(stats.bestLevel, record.level)
-  writeJSON(SOLO_KEY, stats)
-  appendGame({ ...record, mode: 'solo', reason: 'GAME_OVER' })
+  writeJSON(SOLO_KEY, all)
+  appendGame({ ...record, difficulty, mode: 'solo', reason: 'GAME_OVER' })
   return { previousBest, newBest: record.score > previousBest }
 }
 
 /** Брошенная партия Solo: только в ts_games, в сводку ts_solo не входит. Возвращает id. */
 export function recordSoloAbandoned(record: SoloFields): string {
-  return appendGame({ ...record, mode: 'solo', reason: ABANDONED })
+  return appendGame({ ...record, difficulty: record.difficulty ?? 'normal', mode: 'solo', reason: ABANDONED })
 }
 
 /** Снять запись брошенной партии (вкладка вернулась из bfcache — партия продолжается). */
@@ -200,7 +228,7 @@ export function formatSoloStatsLine(stats: SoloStats): string {
 /** JSON, который тестеры присылают после плейтеста: сводки Duel (stats) и Solo (solo), все партии. */
 export function exportStats(): string {
   return JSON.stringify(
-    { exportedAt: new Date().toISOString(), stats: loadStats(), solo: loadSoloStats(), games: loadGames() },
+    { exportedAt: new Date().toISOString(), stats: loadStats(), solo: loadAllSoloStats(), games: loadGames() },
     null,
     2
   )

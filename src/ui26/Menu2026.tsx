@@ -4,7 +4,7 @@ import { preloadPixi, type Theme } from '../render/createRenderer'
 import type { Pt } from '../render/geometry'
 import { copyText } from '../ui/clipboard'
 import { modeDifficulty, withModeDifficulty, type Difficulty, type Mode, type Settings } from '../ui/settings'
-import { exportStats, loadSoloStats, loadStats } from '../ui/stats'
+import { exportStats, loadAllSoloStats, loadStats } from '../ui/stats'
 import { BallSvg, SnakeSvg } from './SnakeSvg'
 
 interface Props {
@@ -111,7 +111,11 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   }, [onClose])
   return (
     <div className="t26-scrim absolute inset-0 z-20 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
-      <div className="cut w-full max-w-[340px] p-5" style={{ ['--edge' as string]: 'linear-gradient(135deg, var(--c26-cyan), var(--c26-violet))' }} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="cut max-h-[calc(100dvh-16px)] w-full max-w-[340px] overflow-y-auto p-5"
+        style={{ ['--edge' as string]: 'linear-gradient(135deg, var(--c26-cyan), var(--c26-violet))' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="mb-4 text-center text-lg font-bold tracking-[0.2em]">{title}</h2>
         {children}
         <button type="button" autoFocus onClick={onClose} className="cut t26-btn mt-4 w-full">
@@ -134,7 +138,9 @@ function StatRow({ label, value }: { label: string; value: ReactNode }) {
 /** Меню темы 2026 (VISUAL_2026.md раздел 4 «Меню»). */
 export function Menu2026({ settings, onSettingsChange, onPlay, onHowTo }: Props) {
   const [stats] = useState(loadStats)
-  const [solo] = useState(loadSoloStats)
+  const [soloAll] = useState(loadAllSoloStats)
+  // Карточка — рекорды выбранной сложности Solo (SOLO_RULES v0.3, раздел 13).
+  const solo = soloAll[settings.soloDifficulty]
   const [sheet, setSheet] = useState<'settings' | 'stats' | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const set = (patch: Partial<Settings>) => onSettingsChange({ ...settings, ...patch })
@@ -250,8 +256,8 @@ export function Menu2026({ settings, onSettingsChange, onPlay, onHowTo }: Props)
 
         <div className="cut grid grid-cols-3 px-2 py-2 text-center" data-testid="stats-line" style={{ ['--edge' as string]: 'linear-gradient(135deg, var(--c26-violet), var(--c26-magenta))' }}>
           {[
-            ['Best score', solo.bestScore, 'var(--c26-gold)'],
-            ['Best level', solo.bestLevel, 'var(--c26-gold)'],
+            [`Best · ${settings.soloDifficulty}`, solo.bestScore, 'var(--c26-gold)'],
+            [`Level · ${settings.soloDifficulty}`, solo.bestLevel, 'var(--c26-gold)'],
             ['Duel wins', stats.wins, 'var(--c26-cyan)'],
           ].map(([label, value, color]) => (
             <div key={label as string}>
@@ -275,10 +281,31 @@ export function Menu2026({ settings, onSettingsChange, onPlay, onHowTo }: Props)
         )}
         {sheet === 'stats' && (
           <Sheet title="STATS" onClose={() => setSheet(null)}>
-            <div className="t26-label mb-1 text-[var(--c26-magenta-soft)]">Solo</div>
-            <StatRow label="Played" value={solo.gamesPlayed} />
-            <StatRow label="Best score" value={solo.bestScore} />
-            <StatRow label="Best level" value={solo.bestLevel} />
+            {/* Solo — обе сложности в одной таблице (на 320×568 два списка не помещались). */}
+            <table className="t26-num mb-1 w-full text-left">
+              <thead>
+                <tr className="t26-label">
+                  <th className="pb-1 font-semibold text-[var(--c26-magenta-soft)]">Solo</th>
+                  <th className="pb-1 text-right font-semibold">Easy</th>
+                  <th className="pb-1 text-right font-semibold">Normal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ['Played', 'gamesPlayed'],
+                    ['Best score', 'bestScore'],
+                    ['Best level', 'bestLevel'],
+                  ] as const
+                ).map(([label, key]) => (
+                  <tr key={key}>
+                    <td className="t26-label py-1">{label}</td>
+                    <td className="py-1 text-right text-base font-semibold">{soloAll.easy[key]}</td>
+                    <td className="py-1 text-right text-base font-semibold">{soloAll.normal[key]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             <div className="t26-label mb-1 mt-3 text-[var(--c26-cyan)]">Duel</div>
             <StatRow label="Played" value={stats.gamesPlayed} />
             <StatRow label="Won" value={stats.wins} />
