@@ -7,6 +7,7 @@ import { assertSoloInvariants } from '../invariants'
 import { continueSolo, getLegalMoves, resolveSoloTick } from '../resolve'
 import { createSoloState } from '../state'
 import type { LifeLostReason, SoloState } from '../types'
+import type { SoloDifficulty } from '../config'
 
 const GAMES = 2000
 const SEED = 20260927
@@ -79,7 +80,8 @@ function randomSnake(state: SoloState, rng: () => number): Direction {
   return options[Math.floor(rng() * options.length)]
 }
 
-describe('stress: random snake in Solo', () => {
+// Normal — тот же прогон, что до v0.3 (seed и цифры не меняются); Easy — раздел 13.
+describe.each(['normal', 'easy'] as SoloDifficulty[])('stress: random snake in Solo, %s', (difficulty) => {
   it(`plays ${GAMES} games without invariant violations`, () => {
     const rng = mulberry32(SEED)
     const lifeLost: Record<LifeLostReason, number> = { SELF_TRAIL: 0, BALL_HIT: 0 }
@@ -95,7 +97,7 @@ describe('stress: random snake in Solo', () => {
     let quickLosses = 0
 
     for (let game = 0; game < GAMES; game++) {
-      let state = createSoloState({ seed: SEED + game })
+      let state = createSoloState({ seed: SEED + game, difficulty })
       let ticks = 0
       let sinceRespawn = Infinity
       while (state.status !== 'GAME_OVER' && ticks < MAX_TICKS) {
@@ -136,7 +138,7 @@ describe('stress: random snake in Solo', () => {
     const pct = (n: number, of: number) => `${((n / Math.max(1, of)) * 100).toFixed(1)}%`
     console.log(
       [
-        `solo stress: ${GAMES} games, seed ${SEED}, limit ${MAX_TICKS} ticks`,
+        `solo stress (${difficulty}): ${GAMES} games, seed ${SEED}, limit ${MAX_TICKS} ticks`,
         `lives lost: ${lost} — BALL_HIT ${lifeLost.BALL_HIT} (${pct(lifeLost.BALL_HIT, lost)}), SELF_TRAIL ${lifeLost.SELF_TRAIL} (${pct(lifeLost.SELF_TRAIL, lost)})`,
         `avg level reached: ${(levelsReached / GAMES).toFixed(2)} (max ${maxLevel})`,
         `passed level 1: ${passedLevel1} (${pct(passedLevel1, GAMES)})`,

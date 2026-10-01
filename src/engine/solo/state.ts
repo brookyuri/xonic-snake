@@ -8,6 +8,7 @@ import {
   SOLO_BOARD_SIZE,
   SOLO_START,
   START_LIVES,
+  type SoloDifficulty,
 } from './config'
 import type { Ball, SoloState, Unit } from './types'
 
@@ -55,7 +56,7 @@ function levelSeed(seed: number, level: number): number {
  * BALL_MIN_DISTANCE (по Чебышёву) к старту змейки, не в одной клетке; направления —
  * случайные диагонали.
  */
-export function spawnBalls(seed: number, level: number): Ball[] {
+export function spawnBalls(seed: number, level: number, difficulty: SoloDifficulty = 'normal'): Ball[] {
   const rng = mulberry32(levelSeed(seed, level))
   const start = SOLO_START.head
   const free: { x: number; y: number }[] = []
@@ -66,7 +67,7 @@ export function spawnBalls(seed: number, level: number): Ball[] {
   }
   const sign = (): Unit => (rng() < 0.5 ? -1 : 1)
   const balls: Ball[] = []
-  for (let i = 0; i < ballsForLevel(level); i++) {
+  for (let i = 0; i < ballsForLevel(level, difficulty); i++) {
     const [pos] = free.splice(Math.floor(rng() * free.length), 1)
     balls.push({ pos, vel: { dx: sign(), dy: sign() } })
   }
@@ -83,12 +84,19 @@ export function innerLand(board: readonly (readonly Cell[])[]): number {
 export const progressOf = (board: readonly (readonly Cell[])[]) => innerLand(board) / INNER_CELLS
 
 /** SOLO_RULES.md раздел 8: старт уровня (по умолчанию — уровень 1, 3 жизни, 0 очков). */
-export function createSoloState(opts: { seed: number; level?: number; lives?: number; score?: number }): SoloState {
+export function createSoloState(opts: {
+  seed: number
+  difficulty?: SoloDifficulty
+  level?: number
+  lives?: number
+  score?: number
+}): SoloState {
   const level = opts.level ?? 1
+  const difficulty = opts.difficulty ?? 'normal'
   return {
     board: frameBoard(),
     player: startPlayer(),
-    balls: spawnBalls(opts.seed, level),
+    balls: spawnBalls(opts.seed, level, difficulty),
     level,
     lives: opts.lives ?? START_LIVES,
     score: opts.score ?? 0,
@@ -96,5 +104,6 @@ export function createSoloState(opts: { seed: number; level?: number; lives?: nu
     round: 0,
     status: 'PLAYING',
     seed: opts.seed,
+    difficulty,
   }
 }

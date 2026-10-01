@@ -1,5 +1,5 @@
 import { INNER_CELLS, MAX_LIVES, SOLO_BOARD_SIZE, ballsForLevel } from './config'
-import type { SoloState } from './types'
+import { difficultyOf, type SoloState } from './types'
 
 function fail(id: string, message: string): never {
   throw new Error(`Invariant ${id} violated: ${message}`)
@@ -62,8 +62,11 @@ export function assertSoloInvariants(state: SoloState, prev?: SoloState): void {
   if (state.status === 'PLAYING' && (state.lives < 1 || state.lives > MAX_LIVES)) fail('S4', `lives ${state.lives}`)
   if (state.lives < 0 || state.lives > MAX_LIVES) fail('S4', `lives ${state.lives}`)
 
-  // S5: число шариков = level + 1.
-  if (balls.length !== ballsForLevel(state.level)) fail('S5', `${balls.length} balls on level ${state.level}`)
+  // S5: число шариков = level + 1 на Normal, level на Easy.
+  const difficulty = difficultyOf(state)
+  if (balls.length !== ballsForLevel(state.level, difficulty)) {
+    fail('S5', `${balls.length} balls on level ${state.level} (${difficulty})`)
+  }
 
   // Голова: на своей земле с пустым следом или на последней клетке следа (как I4 в Duel).
   if (state.status === 'PLAYING' || state.status === 'LEVEL_COMPLETE') {

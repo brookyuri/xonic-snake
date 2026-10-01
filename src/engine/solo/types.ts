@@ -1,4 +1,5 @@
 import type { Cell, Player, Pos } from '../types'
+import type { SoloDifficulty } from './config'
 
 /** SOLO_RULES.md раздел 3. */
 export type SoloStatus = 'PLAYING' | 'LIFE_LOST' | 'LEVEL_COMPLETE' | 'GAME_OVER'
@@ -28,7 +29,15 @@ export interface SoloState {
   status: SoloStatus
   /** Шарики детерминированы от seed. */
   seed: number
+  /**
+   * Задаётся при создании, не меняется до конца партии (раздел 13). Нет поля — Normal
+   * (как умолчание createSoloState): состояния, собранные вручную в тестах до v0.3, остаются Normal.
+   */
+  difficulty?: SoloDifficulty
 }
+
+/** Сложность состояния (по умолчанию Normal). */
+export const difficultyOf = (state: Pick<SoloState, 'difficulty'>): SoloDifficulty => state.difficulty ?? 'normal'
 
 export type LifeLostReason = 'SELF_TRAIL' | 'BALL_HIT'
 

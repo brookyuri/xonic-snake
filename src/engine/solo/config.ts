@@ -33,14 +33,28 @@ export const LEVEL_TARGET = 0.75
 /** Шарики появляются не ближе этого расстояния (по Чебышёву) к старту змейки. */
 export const BALL_MIN_DISTANCE = 6
 
-/**
- * Шарики делают шаг раз в столько тиков (1 — каждый тик). Запас на случай, если
- * плейтест покажет, что слишком сложно (риск 12.3). В UI не выводится.
- */
-export const BALL_STEP_EVERY = 1
+/** Сложность Solo (раздел 13). */
+export type SoloDifficulty = 'easy' | 'normal'
 
-/** Шариков на уровне N. */
-export const ballsForLevel = (level: number) => level + 1
+/**
+ * Все параметры сложности — здесь (раздел 13), чтобы подстроить после плейтеста, не трогая
+ * движок. extraBalls — шариков на уровне N: N + extraBalls. ballStepEvery — шарики делают
+ * шаг на тиках с round % ballStepEvery == 0 (1 — каждый тик).
+ */
+export const SOLO_DIFFICULTY: Record<SoloDifficulty, { extraBalls: number; ballStepEvery: number }> = {
+  easy: { extraBalls: 0, ballStepEvery: 2 },
+  normal: { extraBalls: 1, ballStepEvery: 1 },
+}
+
+export const DEFAULT_SOLO_DIFFICULTY: SoloDifficulty = 'normal'
+
+/** Шариков на уровне N: Normal — N + 1, Easy — N. */
+export const ballsForLevel = (level: number, difficulty: SoloDifficulty = DEFAULT_SOLO_DIFFICULTY) =>
+  level + SOLO_DIFFICULTY[difficulty].extraBalls
+
+/** Ходят ли шарики на этом тике (шаг 7). */
+export const ballsStepOn = (round: number, difficulty: SoloDifficulty = DEFAULT_SOLO_DIFFICULTY) =>
+  round % SOLO_DIFFICULTY[difficulty].ballStepEvery === 0
 
 /** Очки за уровень: 100 × level плюс 50 × level за каждый полный процент сверх 75. */
 export function levelBonus(level: number, innerCaptured: number): number {

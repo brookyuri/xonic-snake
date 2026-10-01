@@ -4,9 +4,9 @@ import { legalMovesFrom } from '../moves'
 import { extendTrail } from '../trail'
 import type { Direction, Pos } from '../types'
 import { moveBall } from './balls'
-import { BALL_STEP_EVERY, LEVEL_TARGET, MAX_LIVES, SOLO_BOARD_SIZE, levelBonus } from './config'
+import { LEVEL_TARGET, MAX_LIVES, SOLO_BOARD_SIZE, ballsStepOn, levelBonus } from './config'
 import { createSoloState, innerLand, isFrame, progressOf, respawnPlayer } from './state'
-import type { LifeLostReason, SoloEvent, SoloState } from './types'
+import { difficultyOf, type LifeLostReason, type SoloEvent, type SoloState } from './types'
 
 /** Те же допустимые ходы, что в Duel (раздел 5.2), на поле 20×20. */
 export function getLegalMoves(state: SoloState, _player: 'P1' = 'P1'): Direction[] {
@@ -112,8 +112,9 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
   row(player.head.y)
   if (extendTrail(w.board, player)) events.push({ type: 'TRAIL_STARTED' })
 
-  // 7. Движение шариков — по доске после захвата.
-  if (state.round % BALL_STEP_EVERY === 0) {
+  // 7. Движение шариков — по доске после захвата, только на тиках, когда шарики ходят
+  // (раздел 13: Normal — каждый тик, Easy — каждый второй).
+  if (ballsStepOn(state.round, difficultyOf(state))) {
     const moved = w.balls.map((b) => moveBall(w.board, b))
     events.push({
       type: 'BALLS_MOVED',
@@ -122,7 +123,7 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
     w.balls = moved
   }
 
-  // 8. Шарик в след (включая клетку головы).
+  // 8. Шарик в след (включая клетку головы) — на каждом тике, даже если шарики стояли.
   const hit = w.balls.find((b) => w.board[b.pos.y][b.pos.x].trail === 'P1')
   if (hit) return loseLife('BALL_HIT', hit.pos)
 
@@ -149,7 +150,13 @@ export function resolveSoloTick(state: SoloState, move: Direction): { state: Sol
 export function continueSolo(state: SoloState): SoloState {
   if (state.status === 'LIFE_LOST') return { ...state, player: respawnPlayer(state.balls), status: 'PLAYING' }
   if (state.status === 'LEVEL_COMPLETE') {
-    return createSoloState({ seed: state.seed, level: state.level + 1, lives: state.lives, score: state.score })
+    return createSoloState({
+      seed: state.seed,
+      difficulty: difficultyOf(state),
+      level: state.level + 1,
+      lives: state.lives,
+      score: state.score,
+    })
   }
   throw new Error(`Nothing to continue from ${state.status}`)
 }
