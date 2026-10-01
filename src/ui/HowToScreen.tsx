@@ -72,7 +72,7 @@ const SOLO_STEPS: Step[] = [
 
 const FOOTER: Record<Mode, string> = {
   duel: 'You are BLUE. Most territory after 2 minutes wins.',
-  solo: 'You have 3 lives and no time limit. Your snake moves by itself — just steer.',
+  solo: '3 lives, no time limit. Easy: fewer, slower balls. Your snake moves by itself — just steer.',
 }
 
 export function HowToScreen({ mode, onDone, doneLabel, theme = '1986' }: { mode: Mode; onDone: () => void; doneLabel: string; theme?: Theme }) {

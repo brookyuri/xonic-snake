@@ -9,7 +9,7 @@
 A real-time territory game for the mobile browser, with two modes:
 
 - **Duel** — you against an AI bot (Easy or Normal) on a 15×15 grid; single-player, there is no human opponent. Leave your territory to draw a trail, come back to close the loop and capture everything inside, and cut the bot's trail before it cuts yours. Both snakes move at the same time, one cell per tick. A match lasts two minutes.
-- **Solo** — one snake on a 20×20 field whose frame is your land. Balls bounce around the empty part; close a loop and every area without a ball becomes yours. A ball touching your trail costs one of three lives. Capture 75% to reach the next level, with one more ball.
+- **Solo** — one snake on a 20×20 field whose frame is your land. Balls bounce around the empty part; close a loop and every area without a ball becomes yours. A ball touching your trail costs one of three lives. Capture 75% to reach the next level, with one more ball. Two difficulties: Normal has N + 1 balls on level N, moving every tick; Easy has N balls, moving every other tick (records are kept separately).
 
 In both modes the snake moves on its own; you only steer.
 
@@ -37,7 +37,7 @@ npm run build     # static build in dist/ (relative paths, deployable to any sub
 npm run preview   # serve the build locally
 ```
 
-Controls: swipe on the board or tap the D-pad on phones; arrow keys or WASD on desktop. Space or P pauses (hiding the tab pauses too). The menu picks the mode (Duel / Solo), the bot for Duel (Easy / Normal) and the speed (Slow 400 ms, Normal 280 ms, Fast 180 ms per tick).
+Controls: swipe on the board or tap the D-pad on phones; arrow keys or WASD on desktop. Space or P pauses (hiding the tab pauses too). The menu picks the mode (Duel / Solo), the difficulty (Easy / Normal, remembered per mode; for Duel it is the bot) and the speed (Slow 400 ms, Normal 280 ms, Fast 180 ms per tick).
 
 ## Tests and benchmark
 
