@@ -4,6 +4,14 @@ import type { BoardRenderer } from './types'
 /** Визуальная тема поля: 1986 — DOM 8-bit, 2026 — PixiJS (VISUAL_2026.md). */
 export type Theme = '1986' | '2026'
 
+/** WebGL-контекст пропал и поле 2026 не поднялось заново — переход на 1986 прямо в партии. */
+export class GraphicsLostError extends Error {
+  constructor() {
+    super('2026 graphics lost and not restored in time')
+    this.name = 'GraphicsLostError'
+  }
+}
+
 /** Чанк Pixi: один промис на всё приложение (меню может начать загрузку заранее). */
 let pixiChunk: Promise<typeof import('./pixi2026')> | null = null
 export function preloadPixi(): Promise<typeof import('./pixi2026')> {

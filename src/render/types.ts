@@ -69,4 +69,8 @@ export interface BoardRenderer {
   frame(alpha: number): void
   resize(sizePx: number): void
   destroy(): void
+  /** WebGL: колбэк на потерю контекста (вызывается один раз, после — только пересоздание). */
+  onContextLost?(callback: () => void): void
+  /** Рисует ли поле на самом деле: контекст жив и отрисованный кадр не пустой. */
+  healthy?(): boolean
 }

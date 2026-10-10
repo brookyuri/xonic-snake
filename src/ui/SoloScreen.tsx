@@ -290,6 +290,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
             tick={ticks}
             timing={{ at: snap.lastTickAt, tickMs, running: phase === 'RUNNING' }}
             onFallback={onRendererFallback}
+            onGraphicsLost={() => controller.pause()}
             onFrame={frames?.record}
             className="board-fit"
             style={{ touchAction: 'none' }}

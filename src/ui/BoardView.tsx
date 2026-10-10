@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEventHandler, type ReactNode } from 'react'
 import { tickAlpha } from '../game/match'
-import { createBoardRenderer, type Theme } from '../render/createRenderer'
+import { createBoardRenderer, GraphicsLostError, type Theme } from '../render/createRenderer'
 import { Dom8bitRenderer } from '../render/dom8bit'
 import type { BoardRenderer, RenderEvent, RenderSnapshot } from '../render/types'
+import { GraphicsGuard } from './graphicsGuard'
 import { prefersReducedMotion } from './matchHooks'
 
 /** Для плавного движения: когда начался последний тик, его длина и идёт ли игра. */
@@ -19,8 +20,13 @@ interface Props {
   events?: readonly RenderEvent[]
   tick?: number
   timing?: TickTiming
-  /** Тема 2026 не поднялась (нет WebGL и Canvas, чанк не загрузился). */
+  /**
+   * Тема 2026 не поднялась (нет WebGL и Canvas, чанк не загрузился) или пропавший
+   * WebGL-контекст не восстановился за 3 с (GraphicsLostError).
+   */
   onFallback?: (error: unknown) => void
+  /** WebGL-контекст поля потерян: экран ставит игру на паузу. */
+  onGraphicsLost?: () => void
   /** ?perf: сколько занял frame() рендерера на этом кадре. */
   onFrame?: (ms: number, now: number) => void
   className?: string
@@ -56,6 +62,7 @@ export function BoardView({
   tick = 0,
   timing,
   onFallback,
+  onGraphicsLost,
   onFrame,
   className = '',
   style,
@@ -67,8 +74,10 @@ export function BoardView({
   const hostRef = useRef<HTMLDivElement>(null)
   const renderer = useRef<BoardRenderer | null>(null)
   const lastTick = useRef(tick)
-  const latest = useRef({ snapshot, tick, timing, onFallback, onFrame })
-  latest.current = { snapshot, tick, timing, onFallback, onFrame }
+  const latest = useRef({ snapshot, tick, timing, onFallback, onGraphicsLost, onFrame })
+  latest.current = { snapshot, tick, timing, onFallback, onGraphicsLost, onFrame }
+  // Поле 2026 пересоздаётся после потери WebGL-контекста — поверх него «Restoring graphics…».
+  const [restoring, setRestoring] = useState(false)
   const { cols, rows } = snapshot
 
   useLayoutEffect(() => {
@@ -112,37 +121,85 @@ export function BoardView({
       })
     }
 
+    // Убрать рендерер (потеря контекста, неудачная попытка восстановления).
+    const teardown = () => {
+      cancelAnimationFrame(raf)
+      const r = mounted
+      mounted = null
+      renderer.current = null
+      try {
+        r?.destroy()
+      } catch (error) {
+        // Разрушение на потерянном контексте не должно мешать пересозданию.
+        console.warn('2026 renderer destroy failed:', error)
+      }
+    }
+
+    // Новый рендерер 2026 сразу получает текущий кадр (в start); true — он правда рисует.
+    const mount2026 = async (): Promise<boolean> => {
+      const r = await createBoardRenderer(theme)
+      if (disposed) {
+        r.destroy()
+        return false
+      }
+      try {
+        await r.mount(el, { ...opts, sizePx: contentSize(el) })
+      } catch (error) {
+        r.destroy()
+        throw error
+      }
+      if (disposed) {
+        r.destroy()
+        return false
+      }
+      start(r)
+      r.onContextLost?.(() => guard.lost())
+      return r.healthy?.() ?? true
+    }
+
+    const guard = new GraphicsGuard({
+      mount: mount2026,
+      teardown,
+      hidden: () => document.hidden,
+      onLost: () => {
+        setRestoring(true)
+        latest.current.onGraphicsLost?.()
+      },
+      onRestored: () => setRestoring(false),
+      onGiveUp: () => {
+        setRestoring(false)
+        latest.current.onFallback?.(new GraphicsLostError())
+      },
+    })
+
+    // Возврат на вкладку: восстановить потерянное поле или проверить, что живое правда рисует.
+    const onVisibility = () => {
+      if (document.hidden) return
+      if (guard.status === 'lost') guard.visible()
+      else if (guard.status === 'ok' && mounted?.healthy?.() === false) guard.lost()
+    }
+
     if (theme === '1986') {
       // Dom8bitRenderer монтируется синхронно: поле в DOM уже в этом кадре.
       const r = new Dom8bitRenderer()
       void r.mount(el, opts)
       start(r)
     } else {
-      createBoardRenderer(theme)
-        .then(async (r) => {
-          if (disposed) return
-          try {
-            await r.mount(el, { ...opts, sizePx: contentSize(el) })
-          } catch (error) {
-            r.destroy()
-            throw error
-          }
-          if (disposed) r.destroy()
-          else start(r)
-        })
-        .catch((error) => {
-          if (!disposed) latest.current.onFallback?.(error)
-        })
+      document.addEventListener('visibilitychange', onVisibility)
+      mount2026().catch((error) => {
+        if (!disposed) latest.current.onFallback?.(error)
+      })
     }
 
     const resize = new ResizeObserver(() => renderer.current?.resize(contentSize(el)))
     resize.observe(el)
     return () => {
       disposed = true
-      cancelAnimationFrame(raf)
+      guard.dispose()
+      document.removeEventListener('visibilitychange', onVisibility)
       resize.disconnect()
-      mounted?.destroy()
-      renderer.current = null
+      teardown()
+      setRestoring(false)
     }
   }, [theme, cols, rows])
 
@@ -165,6 +222,11 @@ export function BoardView({
       onPointerCancel={onPointerUp}
     >
       {children}
+      {restoring && (
+        <div data-testid="restoring-graphics" className="t26-scrim absolute inset-0 z-[3] flex items-center justify-center text-sm font-semibold tracking-[0.12em] text-[var(--c26-text)]">
+          Restoring graphics…
+        </div>
+      )}
     </div>
   )
 }

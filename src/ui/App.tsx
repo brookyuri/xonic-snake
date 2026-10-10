@@ -4,6 +4,7 @@ import { HowToScreen } from './HowToScreen'
 import { MenuScreen } from './MenuScreen'
 import { Menu2026 } from '../ui26/Menu2026'
 import { SoloScreen } from './SoloScreen'
+import { GraphicsLostError } from '../render/createRenderer'
 import { readJSON, writeJSON } from './storage'
 import { loadSettings, saveSettings, type Settings } from './settings'
 import { Toast, type ToastMessage } from './Toast'
@@ -28,6 +29,14 @@ export function App() {
 
   // VISUAL_2026.md раздел 1: WebGL и Canvas не поднялись — классическое поле и тост.
   const fallbackTo1986 = useCallback((error: unknown) => {
+    if (error instanceof GraphicsLostError) {
+      // Потерянный WebGL-контекст не вернулся: 1986 до перезагрузки, в хранилище не пишем
+      // (это сбой GPU, а не устройство без 2026). Партия идёт дальше — поле пересоздаётся.
+      console.warn('2026 graphics lost, switching to 1986 for this session')
+      setSettings((current) => ({ ...current, theme: '1986' }))
+      setToast({ id: Date.now(), text: 'Graphics reset — switched to Classic 1986' })
+      return
+    }
     console.warn('2026 graphics unavailable, switching to 1986:', error)
     setSettings((current) => {
       const next = { ...current, theme: '1986' as const }

@@ -105,7 +105,38 @@ export class Pixi2026Renderer implements BoardRenderer {
     canvas.className = 'board-canvas'
     // Какой рендерер Pixi поднялся (webgl / canvas) — видно в DOM для проверок.
     canvas.dataset.renderer = this.renderer.name
+    canvas.addEventListener('webglcontextlost', this.handleContextLost)
     el.prepend(canvas)
+  }
+
+  private contextLost: (() => void) | null = null
+  private readonly handleContextLost = (event: Event) => {
+    // Без preventDefault браузер не вернёт контекст; Pixi делает то же, но не полагаемся на это.
+    event.preventDefault()
+    const callback = this.contextLost
+    this.contextLost = null
+    callback?.()
+  }
+
+  onContextLost(callback: () => void): void {
+    this.contextLost = callback
+  }
+
+  /**
+   * Поле правда рисуется: контекст жив, а в центре только что отрисованного кадра — непрозрачный
+   * фон поля (спрайт фона покрывает всё поле). Только для WebGL; Canvas контекст не теряет.
+   */
+  healthy(): boolean {
+    const r = this.renderer
+    if (!r) return false
+    if (r.name !== 'webgl' || !this.snapshot) return true
+    const gl = (r as unknown as { gl: WebGLRenderingContext }).gl
+    if (gl.isContextLost()) return false
+    // readPixels — в той же задаче, что и render: буфер кадра ещё не отдан компоновщику.
+    r.render({ container: this.stage })
+    const px = new Uint8Array(4)
+    gl.readPixels(gl.drawingBufferWidth >> 1, gl.drawingBufferHeight >> 1, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px)
+    return px[3] > 0
   }
 
   /** Всё, что зависит от размера клетки: текстуры, RenderTexture земли. */
@@ -341,6 +372,8 @@ export class Pixi2026Renderer implements BoardRenderer {
   }
 
   destroy(): void {
+    this.contextLost = null
+    ;(this.renderer?.canvas as HTMLCanvasElement | undefined)?.removeEventListener('webglcontextlost', this.handleContextLost)
     this.land?.destroy(true)
     for (const t of this.landTextures) t?.destroy(true)
     this.baseTexture?.destroy(true)
