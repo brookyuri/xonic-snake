@@ -62,33 +62,31 @@ export function PauseButton2026({ disabled, onPause }: { disabled: boolean; onPa
 }
 
 /**
- * Нижний ряд: пусто 64 · пэд 168 · пауза 64. raisedPause (Solo) — пауза поднята над правой
- * стрелкой: палец, нажимающий «вправо», не попадает на паузу.
+ * Нижний ряд: пусто 64 · пэд 168 · пауза 64. Пауза поднята над правой стрелкой: палец,
+ * нажимающий «вправо», не попадает на паузу.
  */
 export function Controls2026({
   heading,
   onSteer,
   canSteer,
   onPause,
-  raisedPause = false,
 }: {
   heading: Direction
   onSteer: (d: Direction) => void
   canSteer: boolean
   onPause: () => void
-  raisedPause?: boolean
 }) {
   return (
     // На 320 px 64 + 168 + 64 шире колонки контента: ряд заходит в поля экрана до 8px от края
     // (с учётом safe-area), зазор сжимается так, чтобы кнопка паузы не подходила к краю ближе 8px.
     <div
       // Поднятая пауза добавляет ряду высоту — отступы ряда меньше (8px до края), поле не мельчает.
-      className={`-mx-2 grid grid-cols-[64px_168px_64px] justify-center ${raisedPause ? 'items-start pb-2' : 'items-center pb-3 pt-1'}`}
+      className="-mx-2 grid grid-cols-[64px_168px_64px] items-start justify-center pb-2"
       style={{ gap: 'max(4px, min(16px, calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 16px - 296px) / 2)))' }}
       data-testid="dpad"
     >
       <span aria-hidden />
-      <div className={raisedPause ? 't26-pad-lowered' : undefined}>
+      <div className="t26-pad-lowered">
         <Pad2026 heading={heading} onSteer={onSteer} disabled={!canSteer} />
       </div>
       <PauseButton2026 disabled={!canSteer} onPause={onPause} />
