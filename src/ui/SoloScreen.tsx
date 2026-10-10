@@ -21,6 +21,7 @@ import { createFrameRecorder, createPerfRecorder, perfEnabled, perfReport, summa
 import { LateTickMonitor } from './lateTicks'
 import type { Settings } from './settings'
 import { describeSoloTick, levelIntro, progressLabel, soloEndReason } from './soloText'
+import { useGameLayout } from './useGameLayout'
 import { markLastGameRematch, recordSoloAbandoned, recordSoloGame, unrecordAbandoned } from './stats'
 
 /** Рамка клетки удара мигает 3 раза по 320 мс, потом — отсчёт или GAME OVER. */
@@ -85,6 +86,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
   useAutoPause(controller)
   useMatchKeys(controller, skipHold)
   const swipe = useSwipe(controller)
+  const { layout, headerRef } = useGameLayout(settings.theme, SOLO_BOARD_SIZE)
 
   const match = useRef({ startedAt: new Date().toISOString(), captures: 0, recorded: false })
   const [best, setBest] = useState<{ previousBest: number; newBest: boolean } | null>(null)
@@ -257,7 +259,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} frames={frames?.summary()} />}
         {t26 ? (
-          <header className="pt-3">
+          <header ref={headerRef} className="shrink-0 pt-3">
             <SoloHud2026
               score={state.score}
               level={state.level}
@@ -270,7 +272,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
             <EventLine2026 lines={lines} tone="solo" />
           </header>
         ) : (
-        <header className="pt-3">
+        <header ref={headerRef} className="shrink-0 pt-3">
           <SoloHud state={state} peakLives={peakLives.current}>
             <PauseButton disabled={!canSteer} onPause={() => controller.pause()} />
           </SoloHud>
@@ -293,7 +295,8 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
             onGraphicsLost={() => controller.pause()}
             onFrame={frames?.record}
             className="board-fit"
-            style={{ touchAction: 'none' }}
+            // Поле — по раскладке экрана (gameLayout); 100cqw / 100cqh — страховка до замера.
+            style={{ touchAction: 'none', width: layout ? `min(${layout.boardPx}px, 100cqw, 100cqh)` : undefined }}
             {...swipe}
           >
             {phase === 'COUNTDOWN' && (t26 ? <Countdown2026 value={snap.countdown} /> : <CountdownOverlay value={snap.countdown} />)}
@@ -316,10 +319,10 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
         </div>
 
         {t26 ? (
-          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} />
+          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} layout={layout} />
         ) : (
-        <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
-          <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} />
+        <div className="flex shrink-0 justify-center pb-4 pt-2" data-testid="dpad">
+          <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} size={layout?.padPx} />
         </div>
         )}
 

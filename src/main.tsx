@@ -9,6 +9,10 @@ import '@fontsource/chakra-petch/latin-400.css'
 import '@fontsource/chakra-petch/latin-600.css'
 import '@fontsource/chakra-petch/latin-700.css'
 import './index.css'
+import { startViewportTracking } from './ui/viewport'
+
+// Видимая высота (--app-h) — до первого рендера: экраны сразу встают в видимую область.
+startViewportTracking()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

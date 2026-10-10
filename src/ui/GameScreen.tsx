@@ -27,6 +27,7 @@ import { markLastGameRematch, recordAbandoned, recordGame, unrecordAbandoned } f
 import { prefersReducedMotion, useAutoPause, useFrameLoop, useMatchKeys, useSwipe } from './matchHooks'
 import { createFrameRecorder, createPerfRecorder, perfEnabled, perfReport, summarizePerf } from './perf'
 import { LateTickMonitor } from './lateTicks'
+import { useGameLayout } from './useGameLayout'
 
 /** Клетка столкновения мигает 3 раза по 320 мс, потом появляется GAME OVER. */
 const DEATH_BLINK_MS = 960
@@ -267,6 +268,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
   const canSteer = phase === 'RUNNING' || phase === 'COUNTDOWN'
 
   const swipe = useSwipe(controller)
+  const { layout, headerRef } = useGameLayout(settings.theme, BOARD_SIZE)
   // Тема 2026: свои HUD, строка событий и управление (VISUAL_2026.md раздел 4); 1986 — как было.
   const t26 = settings.theme === '2026'
 
@@ -275,7 +277,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
       <div className="relative mx-auto flex h-full w-full max-w-[480px] flex-col px-4">
         {perfSamples && <PerfPanel summary={summarizePerf(perfSamples, tickMs)} frames={frames?.summary()} />}
         {t26 ? (
-          <header className="pt-3">
+          <header ref={headerRef} className="shrink-0 pt-3">
             <DuelHud2026
               bluePercent={bluePercent}
               redPercent={redPercent}
@@ -286,7 +288,7 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
             <EventLine2026 lines={lines} urgent={inDanger} tone="duel" />
           </header>
         ) : (
-        <header className="pt-3">
+        <header ref={headerRef} className="shrink-0 pt-3">
           <div className="flex items-center gap-2 whitespace-nowrap font-pixel text-[10px]" data-testid="hud">
             <span className="shrink-0 text-ts-blue">BLUE {bluePercent}%</span>
             <span
@@ -318,7 +320,8 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
             onGraphicsLost={() => controller.pause()}
             onFrame={frames?.record}
             className="board-fit"
-            style={{ touchAction: 'none' }}
+            // Поле — по раскладке экрана (gameLayout); 100cqw / 100cqh — страховка до замера.
+            style={{ touchAction: 'none', width: layout ? `min(${layout.boardPx}px, 100cqw, 100cqh)` : undefined }}
             {...swipe}
           >
             {phase === 'COUNTDOWN' && (t26 ? <Countdown2026 value={snap.countdown} /> : <CountdownOverlay value={snap.countdown} />)}
@@ -326,10 +329,10 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
         </div>
 
         {t26 ? (
-          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} />
+          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} layout={layout} />
         ) : (
-        <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
-          <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} />
+        <div className="flex shrink-0 justify-center pb-4 pt-2" data-testid="dpad">
+          <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} size={layout?.padPx} />
         </div>
         )}
 

@@ -1,5 +1,6 @@
 import { OPPOSITE_DIRECTION } from '../engine/constants'
 import type { Direction } from '../engine/types'
+import type { GameLayout } from '../ui/gameLayout'
 
 /**
  * Управление темы 2026 (VISUAL_2026.md «Управление»): круглый пэд Ø168 с 4 кнопками-стрелками
@@ -70,24 +71,34 @@ export function Controls2026({
   onSteer,
   canSteer,
   onPause,
+  layout,
 }: {
   heading: Direction
   onSteer: (d: Direction) => void
   canSteer: boolean
   onPause: () => void
+  /** Раскладка экрана (gameLayout): размер пэда, его сдвиг под паузу, зазор колонок. */
+  layout?: GameLayout | null
 }) {
+  const pad = layout?.padPx ?? 168
   return (
     // На 320 px 64 + 168 + 64 шире колонки контента: ряд заходит в поля экрана до 8px от края
     // (с учётом safe-area), зазор сжимается так, чтобы кнопка паузы не подходила к краю ближе 8px.
     <div
       // Поднятая пауза добавляет ряду высоту — отступы ряда меньше (8px до края), поле не мельчает.
-      className="-mx-2 grid grid-cols-[64px_168px_64px] items-start justify-center pb-2"
-      style={{ gap: 'max(4px, min(16px, calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 16px - 296px) / 2)))' }}
+      className="-mx-2 grid shrink-0 items-start justify-center pb-2"
+      style={{
+        gridTemplateColumns: `64px ${pad}px 64px`,
+        gap: layout ? layout.gapPx : 'max(4px, min(16px, calc((100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 16px - 296px) / 2)))',
+      }}
       data-testid="dpad"
     >
       <span aria-hidden />
-      <div className="t26-pad-lowered">
-        <Pad2026 heading={heading} onSteer={onSteer} disabled={!canSteer} />
+      {/* Пэд меньше 168 — пропорционально (transform: и картинка, и зоны нажатия). */}
+      <div className={layout ? undefined : 't26-pad-lowered'} style={layout ? { marginTop: layout.padDropPx, width: pad, height: pad } : undefined}>
+        <div style={pad === 168 ? undefined : { transform: `scale(${pad / 168})`, transformOrigin: '0 0' }}>
+          <Pad2026 heading={heading} onSteer={onSteer} disabled={!canSteer} />
+        </div>
       </div>
       <PauseButton2026 disabled={!canSteer} onPause={onPause} />
     </div>

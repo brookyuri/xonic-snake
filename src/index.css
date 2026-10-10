@@ -25,14 +25,45 @@ body {
   overscroll-behavior: none;
 }
 
-/* Экран на всю видимую высоту телефона с учётом выреза и home-индикатора. */
+/*
+ * Экран на всю видимую высоту телефона с учётом выреза и home-индикатора. --app-h —
+ * window.innerHeight (src/ui/viewport.ts): реально видимая область без адресной строки
+ * и панели навигации; до замера — 100dvh.
+ */
 .screen {
   height: 100dvh;
+  height: var(--app-h, 100dvh);
   overflow: hidden;
   background: var(--c-bg);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
   box-sizing: border-box;
+}
+
+/* Пробник env(safe-area-inset-*) для раскладки (src/ui/viewport.ts). */
+.safe-area-probe {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/*
+ * Игровой экран (класс ставит useGameLayout): страница не прокручивается и не тянется
+ * (pull-to-refresh), свайпы и пэд не двигают страницу.
+ */
+html.ts-game,
+html.ts-game body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.ts-game .screen,
+html.ts-game .t26-screen {
+  touch-action: none;
 }
 
 .board-slot {
