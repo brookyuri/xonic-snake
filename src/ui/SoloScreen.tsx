@@ -316,7 +316,7 @@ function SoloMatch({ settings, onMenu, onRestart, onRendererFallback, onSlowRend
         </div>
 
         {t26 ? (
-          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} />
+          <Controls2026 heading={heading} onSteer={(d) => controller.steer(d)} canSteer={canSteer} onPause={() => controller.pause()} raisedPause />
         ) : (
         <div className="flex justify-center pb-4 pt-2" data-testid="dpad">
           <DPad heading={heading} onSteer={(d) => controller.steer(d)} disabled={!canSteer} />
