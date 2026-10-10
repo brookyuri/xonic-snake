@@ -112,7 +112,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   return (
     <div className="t26-scrim absolute inset-0 z-20 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <div
-        className="cut max-h-[calc(100dvh-16px)] w-full max-w-[340px] overflow-y-auto p-5"
+        className="cut max-h-[calc(var(--app-h,100dvh)-16px)] w-full max-w-[340px] overflow-y-auto p-5"
         style={{ ['--edge' as string]: 'linear-gradient(135deg, var(--c26-cyan), var(--c26-violet))' }}
         onClick={(e) => e.stopPropagation()}
       >

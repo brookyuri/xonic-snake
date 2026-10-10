@@ -88,7 +88,7 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
 
   return (
     <div className="screen">
-      <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-ts-text">
+      <div className="mx-auto flex h-full w-full max-w-[480px] flex-col px-4 pb-4 text-ts-text [@media(max-height:600px)]:pt-1">
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
           <h1 className="text-center font-pixel text-[clamp(20px,7vw,32px)] leading-snug">
             <span className="text-ts-blue">XONIC</span>
@@ -102,7 +102,8 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           </p>
         </div>
 
-        <div className="mb-4 flex flex-col gap-3">
+        {/* Низкие видимые области (телефон с панелями браузера, 360×560): зазоры меньше. */}
+        <div className="mb-4 flex flex-col gap-3 [@media(max-height:600px)]:mb-2 [@media(max-height:600px)]:gap-2">
           <Segmented
             label="Mode"
             value={settings.mode}
@@ -143,8 +144,8 @@ export function MenuScreen({ settings, onSettingsChange, onPlay, onHowTo }: Prop
           <button
             type="button"
             disabled
-            // Заглушка «скоро»: на низких экранах (320×568) место нужнее статистике.
-            className="min-h-14 btn text-sm text-ts-text2 [@media(max-height:600px)]:hidden"
+            // Заглушка «скоро»: на низких экранах (видимая высота до 660px) место нужнее статистике.
+            className="min-h-14 btn text-sm text-ts-text2 [@media(max-height:660px)]:hidden"
           >
             PLAY WITH FRIEND
             <span className="mt-1 block text-[10px] uppercase">Coming soon</span>
