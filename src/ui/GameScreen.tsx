@@ -314,6 +314,8 @@ function Match({ settings, onMenu, onRestart, onRendererFallback, onSlowRenderer
             tick={ticks}
             timing={{ at: snap.lastTickAt, tickMs, running: phase === 'RUNNING' }}
             onFallback={onRendererFallback}
+            // Поле восстанавливается после потери WebGL-контекста — бот не должен играть вслепую.
+            onGraphicsLost={() => controller.pause()}
             onFrame={frames?.record}
             className="board-fit"
             style={{ touchAction: 'none' }}

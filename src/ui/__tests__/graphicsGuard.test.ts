@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MatchController } from '../../game/match'
+import { asStepped } from '../../bot/types'
 import { GraphicsGuard, RESTORE_RETRY_MS, RESTORE_TIMEOUT_MS, type GraphicsGuardHooks } from '../graphicsGuard'
 
 function setup(results: (boolean | 'throw')[], hidden = false) {
@@ -72,5 +74,69 @@ describe('GraphicsGuard', () => {
     guard.lost()
     guard.lost()
     expect(log).toEqual(['teardown', 'lost'])
+  })
+})
+
+describe('Duel: потеря графики', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('автопауза: бот не ходит, пока поле восстанавливается; дальше RESUME с отсчётом 3-2-1', async () => {
+    let t = 1000
+    const TICK = 280
+    // RED кружит по периметру своего дома (как в match.test.ts).
+    const circle = ['LEFT', 'UP', 'RIGHT', 'RIGHT', 'DOWN', 'DOWN', 'LEFT', 'LEFT'] as const
+    const match = new MatchController({
+      tickMs: TICK,
+      maxRounds: 100,
+      bot: asStepped((state) => circle[state.round % circle.length]),
+      now: () => t,
+      strict: true,
+    })
+    t += 3000
+    match.frame()
+    expect(match.snapshot.phase).toBe('RUNNING')
+    t += TICK
+    match.frame()
+    expect(match.snapshot.ticks).toBe(1)
+
+    // Как GameScreen: BoardView onGraphicsLost → controller.pause().
+    let restore: (ok: boolean) => void = () => {}
+    const guard = new GraphicsGuard({
+      mount: () => new Promise<boolean>((resolve) => (restore = resolve)),
+      teardown: () => {},
+      hidden: () => false,
+      onLost: () => match.pause(),
+      onRestored: () => {},
+      onGiveUp: () => {},
+    })
+    guard.lost()
+    expect(match.snapshot.phase).toBe('PAUSED')
+    const frozen = match.snapshot.state
+    for (let i = 0; i < 10; i++) {
+      t += TICK
+      match.frame()
+    }
+    expect(match.snapshot.ticks).toBe(1)
+    expect(match.snapshot.state).toBe(frozen)
+
+    // Поле поднялось — игра сама не продолжается.
+    restore(true)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(guard.status).toBe('ok')
+    t += TICK * 5
+    match.frame()
+    expect(match.snapshot.phase).toBe('PAUSED')
+
+    // RESUME — обычный отсчёт 3-2-1, потом тики.
+    match.resume()
+    expect(match.snapshot.phase).toBe('COUNTDOWN')
+    expect(match.snapshot.countdown).toBe(3)
+    t += 3000
+    match.frame()
+    expect(match.snapshot.phase).toBe('RUNNING')
+    t += TICK
+    match.frame()
+    expect(match.snapshot.ticks).toBe(2)
   })
 })
