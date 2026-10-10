@@ -31,6 +31,8 @@ declare global {
     __tsPerf?: TickSample[]
     /** ?perf: кадры [длительность frame() рендерера, мс; момент кадра]. */
     __tsFrames?: [number, number][]
+    /** ?perf, тема 2026: живые рендереры Pixi, текстуры поля и текстуры в GPU. */
+    __tsGpu?: () => { renderers: number; textures: number; glTextures: number }
   }
 }
 

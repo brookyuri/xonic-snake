@@ -1,10 +1,21 @@
-import { CanvasSource, Texture } from 'pixi.js'
+import { CanvasSource, Texture, type TextureSource } from 'pixi.js'
 import { C, type LandStyle } from './palette'
 
 /**
  * Текстуры поля 2026 рисуются один раз (на старте и при смене размера) обычным Canvas2D
  * и дальше живут как спрайты: свечение и градиенты не пересчитываются на кадре.
  */
+
+/** ?perf: сколько созданных полем текстур (Canvas2D и RenderTexture) ещё не уничтожено. */
+let liveTextures = 0
+export const liveTextureCount = (): number => liveTextures
+
+/** Учесть текстуру в liveTextureCount до её destroy(). */
+export function tracked<T extends Texture>(texture: T): T {
+  liveTextures++
+  texture.source.once('destroy', (_: TextureSource) => liveTextures--)
+  return texture
+}
 
 function canvasTexture(width: number, height: number, res: number, draw: (ctx: CanvasRenderingContext2D) => void): Texture {
   const canvas = document.createElement('canvas')
@@ -13,7 +24,7 @@ function canvasTexture(width: number, height: number, res: number, draw: (ctx: C
   const ctx = canvas.getContext('2d')!
   ctx.scale(res, res)
   draw(ctx)
-  return new Texture({ source: new CanvasSource({ resource: canvas, resolution: res }) })
+  return tracked(new Texture({ source: new CanvasSource({ resource: canvas, resolution: res }) }))
 }
 
 /** Фон поля: радиальный градиент (центр 50% 40%) и тонкая сетка 0.5px. */

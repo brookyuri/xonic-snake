@@ -5,7 +5,7 @@ import { LAND } from './palette'
 import { BallSprites } from './balls'
 import { Effects } from './effects'
 import { DEATH_FLASH_MS, SnakeSprite, snakeMetrics } from './snake'
-import { boardTexture, landTexture } from './textures'
+import { boardTexture, landTexture, liveTextureCount, tracked } from './textures'
 
 export type PixiPreference = 'webgl' | 'canvas'
 
@@ -31,6 +31,19 @@ const HIT_RED = 0xff3355
  * RenderTexture, в которой на тике перерисовываются только изменившиеся клетки.
  */
 export class Pixi2026Renderer implements BoardRenderer {
+  /** Смонтированные и ещё не уничтоженные рендереры (?perf: утечки при рестартах). */
+  private static readonly live = new Set<Pixi2026Renderer>()
+
+  /** ?perf: живые рендереры, текстуры поля и текстуры в памяти GPU (по всем рендерерам). */
+  static stats(): { renderers: number; textures: number; glTextures: number } {
+    let glTextures = 0
+    for (const r of Pixi2026Renderer.live) {
+      const system = (r.renderer as unknown as { texture?: { managedTextures?: unknown[] } } | null)?.texture
+      glTextures += system?.managedTextures?.length ?? 0
+    }
+    return { renderers: Pixi2026Renderer.live.size, textures: liveTextureCount(), glTextures }
+  }
+
   private renderer: Renderer | null = null
   private readonly stage = new Container()
   private readonly baseSprite = new Sprite()
@@ -107,6 +120,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     canvas.dataset.renderer = this.renderer.name
     canvas.addEventListener('webglcontextlost', this.handleContextLost)
     el.prepend(canvas)
+    Pixi2026Renderer.live.add(this)
   }
 
   private contextLost: (() => void) | null = null
@@ -160,7 +174,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     this.effects!.setCell(cell, this.res, this.baseTexture, this.cols)
 
     this.land?.destroy(true)
-    this.land = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
+    this.land = tracked(RenderTexture.create({ width: this.size, height: this.size, resolution: this.res }))
     r.render({ container: new Container(), target: this.land, clear: true })
     this.landSprite.texture = this.land
     this.kinds = new Uint8Array(this.cols * this.rows)
@@ -193,7 +207,7 @@ export class Pixi2026Renderer implements BoardRenderer {
     const ring = new Graphics().circle(cell, cell, cell).stroke({ width: 2, color: 0xff3df0, alpha: 0.5 })
     warm.addChild(...fx, ring)
     warm.addChild(balls.container, this.stage)
-    const target = RenderTexture.create({ width: this.size, height: this.size, resolution: this.res })
+    const target = tracked(RenderTexture.create({ width: this.size, height: this.size, resolution: this.res }))
     r.render({ container: warm, target, clear: true })
     warm.removeChild(this.stage, balls.container)
     warm.destroy({ children: true })
@@ -372,6 +386,7 @@ export class Pixi2026Renderer implements BoardRenderer {
   }
 
   destroy(): void {
+    Pixi2026Renderer.live.delete(this)
     this.contextLost = null
     ;(this.renderer?.canvas as HTMLCanvasElement | undefined)?.removeEventListener('webglcontextlost', this.handleContextLost)
     this.land?.destroy(true)

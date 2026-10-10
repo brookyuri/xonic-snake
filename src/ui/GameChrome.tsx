@@ -54,6 +54,8 @@ export function CountdownOverlay({ value }: { value: number }) {
 
 /** ?perf: маленькая полупрозрачная панель поверх HUD; вторая строка — кадры рендерера. */
 export function PerfPanel({ summary, frames }: { summary: ReturnType<typeof summarizePerf>; frames?: FrameSummary }) {
+  const gpu = window.__tsGpu?.()
+  const heap = (performance as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize
   return (
     <div
       data-testid="perf-panel"
@@ -64,6 +66,14 @@ export function PerfPanel({ summary, frames }: { summary: ReturnType<typeof summ
         <>
           <br />
           fps {frames.fps} · frame avg {frames.frameAvg}ms · max {frames.frameMax}ms
+        </>
+      )}
+      {(gpu || heap) && (
+        <>
+          <br />
+          {/* Тема 2026: живые рендереры Pixi, текстуры поля, текстуры в GPU; куча JS (Chrome). */}
+          {gpu && `pixi ${gpu.renderers} · tex ${gpu.textures} · gl ${gpu.glTextures}`}
+          {heap ? ` · heap ${Math.round(heap / 1048576)}MB` : ''}
         </>
       )}
     </div>
